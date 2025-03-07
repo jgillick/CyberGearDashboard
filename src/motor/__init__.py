@@ -14,7 +14,6 @@ from motor.parameters import (
     TYPE_UINT16,
     TYPE_UINT32,
     TYPE_FLOAT,
-    TYPE_STRING,
     get_parameter_by_name,
     get_parameter_by_addr,
 )
@@ -56,11 +55,11 @@ class Command(Enum):
     STATE = 2
     ENABLE = 3
     STOP = 4
-    SET_MECH_POSITION_TO_ZERO = 6
+    SET_ZERO = 6
     CHANGE_CAN_ID = 7
     READ_PARAM = 17
     WRITE_PARAM = 18
-    GET_MOTOR_FAIL = 21
+    FAULT = 21
 
 
 class MotorState:
@@ -87,12 +86,14 @@ class CyberGearMotor(EventEmitter):
     verbose: bool
     state: dict
     params: dict
+    errors: dict
 
     def __init__(self, motor_id: int, bus: can.Bus, verbose: bool = False) -> None:
         self.verbose = verbose
         self.motor_id = motor_id
         self.params = {}
         self.state = {}
+        self.errors = {}
 
         self.bus = bus
         self.notifier = can.Notifier(self.bus, [self._message_received])
@@ -233,12 +234,7 @@ class CyberGearMotor(EventEmitter):
         """Send a message to the motor."""
 
         # Encode ID
-        id = (
-            (self.motor_id & 0xFF)
-            | ((extended_data & 0xFFFF) << 8)
-            | ((command.value & 0x1F) << 24)
-            | ((0 & 0x7) << 29)  # Reserved field
-        )
+        id = command.value << 24 | extended_data << 8 | self.motor_id
 
         # Create message
         msg = can.Message(
@@ -260,25 +256,24 @@ class CyberGearMotor(EventEmitter):
         destination_id = msg.arbitration_id & 0xFF
         from_id = (msg.arbitration_id >> 8) & 0xFF
 
-        extended_data = (msg.arbitration_id >> 8) & 0xFFFF
-        ext_data_bytes = extended_data.to_bytes(16, "little")
-
         command_num = (msg.arbitration_id >> 24) & 0x1F
         command = Command(command_num)
 
+        extended_data = (msg.arbitration_id >> 8) & 0xFFFF
+        ext_data_bytes = extended_data.to_bytes(16, "little")
+
         # Filter out messages not from our motor
         if destination_id != HOST_CAN_ID:
-            self._log(f" - Message not to host (ID: {destination_id})")
             return
         if from_id != self.motor_id:
-            self._log(f" - Not our motor (ID: {from_id})")
             return
-        self._log(f"Received: {command.name}")
 
         if command == Command.STATE:
             self._process_received_state(msg.data, ext_data_bytes)
         elif command == Command.READ_PARAM:
             self._processed_received_param(msg.data)
+        elif command == Command.FAULT:
+            self._process_fault_data(msg.data)
 
     def _process_received_state(self, data: bytearray, ext_data: bytearray):
         """Convert the motor feedback response into the current motor state"""
@@ -287,38 +282,41 @@ class CyberGearMotor(EventEmitter):
         torque_data = data[5] | data[4] << 8
 
         raw_temp = data[7] | data[6] << 8
+        motor_id = int.from_bytes(ext_data[0:7], byteorder="little")
+
         self.state["temperature"] = raw_temp / 10 if raw_temp else 0
         self.state["position"] = uint_to_float(pos_data, P_MIN, P_MAX)
         self.state["velocity"] = uint_to_float(vel_data, V_MIN, V_MAX)
         self.state["torque"] = uint_to_float(torque_data, T_MIN, T_MAX)
 
-        motor_id = int.from_bytes(ext_data[0:7], byteorder="little")
-        self.state["is_calibrated"] = not bool(ext_data[13])
-        self.state["hall_encoding_failure"] = bool(ext_data[12])
-        self.state["magnetic_encoding_failure"] = bool(ext_data[11])
-        self.state["over_temperature"] = bool(ext_data[10])
-        self.state["over_current"] = bool(ext_data[9])
-        self.state["under_voltage"] = bool(ext_data[8])
+        # mode_status = int.from_bytes(ext_data[14:15], byteorder="little")
+        # self.state["mode_status"] = ModeStatus(mode_status)
 
-        mode_status = int.from_bytes(ext_data[14:15], byteorder="little")
-        self.state["mode_status"] = ModeStatus(mode_status)
+        # Errors and warnings
+        errors = self.errors.copy()
+        errors["Encoder not calibrated"] = bool(ext_data[13])
+        errors["Hall encoder failure"] = bool(ext_data[12])
+        errors["Magnetic encoder failure"] = bool(ext_data[11])
+        errors["Over_temperature"] = bool(ext_data[10])
+        errors["Over current"] = bool(ext_data[9])
+        errors["Under voltage"] = bool(ext_data[8])
+
+        # Filter out falsy vales
+        self.errors = {k: v for k, v in errors.items() if v}
+        if len(self.errors):
+            self.emit("fault")
 
         self.emit("state_changed")
 
+        # Log state
         self._log(f" > Motor ID: {motor_id}")
         self._log(f" > Position: {self.state['position']}")
         self._log(f" > Velocity: {self.state['velocity']}")
         self._log(f" > Torque: {self.state['torque']}")
-        if not self.state["is_calibrated"]:
-            self._log(f" ! Calibrated: {self.state['is_calibrated']}")
-        if self.state["hall_encoding_failure"]:
-            self._log(f" ! Hall Failure: {self.state['hall_encoding_failure']}")
-        if self.state["magnetic_encoding_failure"]:
-            self._log(f" ! Encoder Failure: {self.state['magnetic_encoding_failure']}")
-        if self.state["over_current"]:
-            self._log(f" > Over current: {self.state['over_current']}")
-        if self.state["under_voltage"]:
-            self._log(f" > Under Voltage: {self.state['under_voltage']}")
+
+        # Log errors
+        for err in self.errors:
+            self._log(f" ! {err}")
 
     def _processed_received_param(self, data: bytearray):
         """A requested motor prarameter has been received"""
@@ -356,3 +354,29 @@ class CyberGearMotor(EventEmitter):
             self.emit("param_changed", param_name, value)
         except Exception as e:
             self._log(f"ERROR: Could not process parameter value ({log_name}): {e}")
+
+    def _process_fault_data(self, data: bytearray):
+        """Process the fault feedback message"""
+        # Extract fault value (bytes 0-3)
+        fault_value = int.from_bytes(data[0:4], byteorder="little")
+
+        # Extract individual fault bits
+        errors = self.errors.copy()
+        errors["Phase A over current"] = bool(fault_value & (1 << 16))
+        errors["Phase B over current"] = bool(fault_value & (1 << 4))
+        errors["Phase C over current"] = bool(fault_value & (1 << 5))
+        errors["Overload"] = (fault_value >> 8) & 0xFF  # Bits 15-8
+        errors["Encoder not calibrated"] = bool(fault_value & (1 << 7))
+        errors["Over voltage"] = bool(fault_value & (1 << 3))
+        errors["Under voltage"] = bool(fault_value & (1 << 2))
+        errors["Driver chip"] = bool(fault_value & (1 << 1))
+        errors["Over temperature"] = bool(fault_value & (1 << 0))
+
+        # Filter out falsy values
+        self.errors = {k: v for k, v in errors.items() if v}
+        if fault_value:
+            self.emit("fault")
+
+        # Log errors
+        for err in self.errors:
+            self._log(f" ! {err}")
