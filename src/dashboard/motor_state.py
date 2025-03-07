@@ -1,12 +1,12 @@
 from PySide6.QtCore import QAbstractTableModel, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QVBoxLayout,
     QHBoxLayout,
     QTableView,
     QLabel,
     QPushButton,
     QSizePolicy,
+    QDockWidget,
 )
 
 from motor import CyberGearMotor
@@ -57,28 +57,19 @@ class StateTableModel(QAbstractTableModel):
         return None
 
 
-class StateTable(QVBoxLayout):
+class MotorStateWidget(QDockWidget):
     model: StateTableModel
     motor: CyberGearMotor
 
-    def __init__(self, motor: CyberGearMotor):
-        super().__init__()
+    def __init__(self, motor: CyberGearMotor, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.motor = motor
         self.model = StateTableModel(self.motor)
         self.build_layout()
 
     def build_layout(self):
-        title = QLabel("Motor State")
-        refresh_btn = QPushButton()
-        refresh_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        refresh_btn.setIcon(QIcon.fromTheme(QIcon.ThemeIcon.ViewRefresh))
-        refresh_btn.clicked.connect(self.model.reload)
+        self.setWindowTitle("Motor state")
 
         table = QTableView()
         table.setModel(self.model)
-
-        title_layout = QHBoxLayout()
-        title_layout.addWidget(title)
-        title_layout.addWidget(refresh_btn)
-        self.addLayout(title_layout)
-        self.addWidget(table)
+        self.setWidget(table)

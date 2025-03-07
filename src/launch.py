@@ -56,7 +56,7 @@ def main() -> None:
         channel=args.channel,
         interface=args.interface,
         motor_id=args.motor_id,
-        verbose=True,
+        verbose=False,
     )
 
 

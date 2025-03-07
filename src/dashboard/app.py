@@ -1,6 +1,7 @@
 import sys
 import can
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent, QAction
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -11,9 +12,9 @@ from PySide6.QtWidgets import (
 
 from motor import CyberGearMotor
 
-from dashboard.parameter_table import ParameterTable
-from dashboard.mode_selector import ModeSelector
-from dashboard.state_table import StateTable
+from dashboard.parameters import ParameterDockWidget
+from dashboard.controller import MotorControllerDockWidget
+from dashboard.motor_state import MotorStateWidget
 
 CAN_BITRATE = 1000000
 
@@ -27,29 +28,58 @@ class MainWindow(QMainWindow):
     ):
         super().__init__()
 
-        connected = self.connect(channel, interface, motor_id, verbose)
+        # Connect to motor
+        self.connect(channel, interface, motor_id, verbose)
 
+        # UI
+        self.resize(800, 600)
         self.setWindowTitle("CyberGear Dashboard")
-
-        widget = QWidget()
-        if connected:
-            layout = self.build_layout()
-            widget.setLayout(layout)
-
-        self.setCentralWidget(widget)
+        self.build_layout()
+        self.build_menubar()
 
     def build_layout(self):
         """Construct the layout"""
         layout = QVBoxLayout()
 
-        mode = ModeSelector(self.motor)
-        state = StateTable(self.motor)
-        params = ParameterTable(self.motor)
+        self.state_dock = MotorStateWidget(self.motor, self)
+        self.parameter_dock = ParameterDockWidget(self.motor, self)
+        self.controller_dock = MotorControllerDockWidget(self.motor, self)
 
-        layout.addLayout(mode)
-        layout.addLayout(state)
-        layout.addLayout(params)
-        return layout
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.state_dock)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.parameter_dock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.controller_dock)
+
+        widget = QWidget()
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)
+
+    def build_menubar(self):
+        """Setup the app menubar"""
+        view_motor_state = QAction("Motor state", self)
+        view_motor_state.setCheckable(True)
+
+        view_parameters = QAction("Parameters", self)
+        view_parameters.setCheckable(True)
+
+        view_control = QAction("Control", self)
+        view_control.setCheckable(True)
+
+        menu = self.menuBar()
+
+        view_menu = menu.addMenu("&View")
+        view_menu.addAction(view_motor_state)
+        view_menu.addAction(view_parameters)
+        view_menu.addAction(view_control)
+
+        # Connect menus to dock widgets
+        view_motor_state.toggled.connect(self.state_dock.setVisible)
+        self.state_dock.visibilityChanged.connect(view_motor_state.setChecked)
+
+        self.parameter_dock.visibilityChanged.connect(view_parameters.setChecked)
+        view_parameters.toggled.connect(self.parameter_dock.setVisible)
+
+        view_control.toggled.connect(self.controller_dock.setVisible)
+        self.controller_dock.visibilityChanged.connect(view_control.setChecked)
 
     def connect(
         self, channel: str, interface: str, motor_id: int, verbose: bool
@@ -69,6 +99,7 @@ class MainWindow(QMainWindow):
             alert = QMessageBox()
             alert.setText(f"Could not connect to the motor\n{e}")
             alert.exec()
+            self.close()
         return True
 
     def closeEvent(self, event: QCloseEvent):

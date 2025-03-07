@@ -1,3 +1,4 @@
+from typing import List
 from PySide6.QtCore import (
     QAbstractTableModel,
     QSortFilterProxyModel,
@@ -6,62 +7,66 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QVBoxLayout,
+    QDockWidget,
     QHBoxLayout,
     QTableView,
-    QLabel,
     QPushButton,
     QSizePolicy,
     QLineEdit,
+    QWidget,
 )
 
 from motor import CyberGearMotor
-from motor.parameters import Parameters, ParamNames, TYPE_FLOAT, TYPE_STRING
+from motor.parameters import (
+    Parameters,
+    ParamNames,
+    get_parameter_by_name,
+    TYPE_FLOAT,
+    TYPE_STRING,
+)
 
 
 class ParameterTableModel(QAbstractTableModel):
     motor: CyberGearMotor
+    param_list: List[str]
+    headers = ("Name", "Value")
 
     def __init__(self, motor: CyberGearMotor):
         super().__init__()
         self.motor = motor
 
-        # Filter out string value rows
-        self.table_rows = [
-            (id, name, type, *rest)
-            for (id, name, type, *rest) in Parameters
-            if type != TYPE_STRING
+        # Filter out string type params
+        self.param_list = [
+            name for (id, name, type, *rest) in Parameters if type != TYPE_STRING
         ]
+        self.param_list.sort()
 
         motor.on("param_changed", self.onItemChanged)
         self.reload()
 
     def reload(self):
         """Fetch all parameter values from the motor"""
-        for param in self.table_rows:
-            self.motor.request_parameter(param[1])
+        for name in self.param_list:
+            self.motor.request_parameter(name)
 
     def onItemChanged(self, param_name, value):
         # Find index for parameter name
-        idx = -1
-        for i in range(len(self.table_rows)):
-            if self.table_rows[i][1] == param_name:
-                data_index = i
-                break
-
-        data_index = self.index(idx, 2)
-        self.dataChanged.emit(data_index, data_index)
+        idx = self.param_list.index(param_name)
+        if idx > -1:
+            data_index = self.index(idx, 1)
+            self.dataChanged.emit(data_index, data_index)
 
     def rowCount(self, index):
-        return len(self.table_rows)
+        return len(self.param_list)
 
     def columnCount(self, parent=None):
-        return 2
+        return len(self.headers)
 
     def data(self, index, role=Qt.DisplayRole):
         if role == Qt.DisplayRole:
             col = index.column()
             row = index.row()
-            (id, name, *rest) = self.table_rows[row]
+            name = self.param_list[row]
             if col == 0:
                 return name
             else:
@@ -70,10 +75,7 @@ class ParameterTableModel(QAbstractTableModel):
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
-            if section == 0:
-                return "Name"
-            else:
-                return "Value"
+            return self.headers[section]
         return None
 
     def flags(self, index):
@@ -81,18 +83,21 @@ class ParameterTableModel(QAbstractTableModel):
 
         col = index.column()
         row = index.row()
-        (id, name, type, range, permissions) = self.table_rows[row]
-        if col == 1 and permissions == "rw":
-            flags = flags | Qt.ItemIsSelectable | Qt.ItemIsEditable
+        if col == 1:
+            (id, name, type, range, permissions) = get_parameter_by_name(
+                self.param_list[row]
+            )
+            if permissions == "rw":
+                flags = flags | Qt.ItemIsSelectable | Qt.ItemIsEditable
 
         return flags
 
     def setData(self, index, value, /, role=...):
-        print("Set data!")
         if role == Qt.EditRole:
-            col = index.column()
             row = index.row()
-            (id, name, type, range, permissions) = self.table_rows[row]
+            (id, name, type, range, permissions) = get_parameter_by_name(
+                self.param_list[row]
+            )
             if permissions == "rw":
                 if type == TYPE_FLOAT:
                     value = float(value)
@@ -104,13 +109,13 @@ class ParameterTableModel(QAbstractTableModel):
             return False
 
 
-class ParameterTable(QVBoxLayout):
+class ParameterDockWidget(QDockWidget):
     motor: CyberGearMotor
     model: ParameterTableModel
     filtered_model: QSortFilterProxyModel
 
-    def __init__(self, motor: CyberGearMotor):
-        super().__init__()
+    def __init__(self, motor: CyberGearMotor, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.motor = motor
 
         self.model = ParameterTableModel(self.motor)
@@ -120,7 +125,8 @@ class ParameterTable(QVBoxLayout):
         self.build_layout()
 
     def build_layout(self):
-        title = QLabel("Motor Parameters")
+        self.setWindowTitle("Parameters")
+
         refresh_btn = QPushButton()
         refresh_btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         refresh_btn.setIcon(QIcon.fromTheme(QIcon.ThemeIcon.ViewRefresh))
@@ -132,13 +138,17 @@ class ParameterTable(QVBoxLayout):
         table = QTableView()
         table.setModel(self.filtered_model)
 
-        title_layout = QHBoxLayout()
-        title_layout.addWidget(title)
-        title_layout.addWidget(refresh_btn)
-        self.addLayout(title_layout)
-        self.addWidget(search_field)
-        self.addWidget(table)
-        self.setSpacing(0)
+        search_layout = QHBoxLayout()
+        search_layout.addWidget(refresh_btn)
+        search_layout.addWidget(search_field)
+
+        layout = QVBoxLayout()
+        layout.addLayout(search_layout)
+        layout.addWidget(table)
+
+        root = QWidget()
+        root.setLayout(layout)
+        self.setWidget(root)
 
     def search(self, text):
         self.filtered_model.setFilterFixedString(text)
