@@ -19,10 +19,8 @@ from PySide6.QtWidgets import (
 from motor import CyberGearMotor
 from motor.parameters import (
     Parameters,
-    ParamNames,
+    DataType,
     get_parameter_by_name,
-    TYPE_FLOAT,
-    TYPE_STRING,
 )
 
 
@@ -37,7 +35,7 @@ class ParameterTableModel(QAbstractTableModel):
 
         # Filter out string type params
         self.param_list = [
-            name for (id, name, type, *rest) in Parameters if type != TYPE_STRING
+            name for (id, name, type, *rest) in Parameters if type != DataType.STRING
         ]
         self.param_list.sort()
 
@@ -70,7 +68,10 @@ class ParameterTableModel(QAbstractTableModel):
             if col == 0:
                 return name
             else:
-                return self.motor.params.get(name)
+                value = self.motor.params.get(name)
+                if value is None:
+                    return value
+                return "{:.3f}".format(value)  # Format to 3 decimal positions
         return None
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -99,17 +100,18 @@ class ParameterTableModel(QAbstractTableModel):
                 self.param_list[row]
             )
             if permissions == "rw":
-                if type == TYPE_FLOAT:
+                if type == DataType.FLOAT:
                     value = float(value)
                 else:
                     value = int(value)
+                print(f"SET {name} {value}")
                 self.motor.set_parameter(name, value)
                 self.motor.request_parameter(name)
                 return True
             return False
 
 
-class ParameterDockWidget(QDockWidget):
+class MotorParametersWidget(QDockWidget):
     motor: CyberGearMotor
     model: ParameterTableModel
     filtered_model: QSortFilterProxyModel

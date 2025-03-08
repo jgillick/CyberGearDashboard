@@ -8,12 +8,7 @@ from motor.utils import float_to_uint, uint_to_float
 from motor.event_emitter import EventEmitter
 from motor.parameters import (
     ParameterName,
-    TYPE_INT16,
-    TYPE_INT32,
-    TYPE_UINT8,
-    TYPE_UINT16,
-    TYPE_UINT32,
-    TYPE_FLOAT,
+    DataType,
     get_parameter_by_name,
     get_parameter_by_addr,
 )
@@ -122,31 +117,39 @@ class CyberGearMotor(EventEmitter):
         """Request the current motor state"""
         self._send(Command.STATE)
 
-    def control_position(
+    def request_motor_fault_status(self):
+        """Request any active faults from the motor"""
+        self._send(Command.FAULT)
+
+    def control(
         self, position: float, velocity: float, torque: float, kp: float, kd: float
     ):
         """Move to a position in operation control mode."""
         data = bytearray(8)
 
-        # Position data (bytes 0-1)
+        # Convert values
         position_value = float_to_uint(position, P_MIN, P_MAX, 16)
-        data[0] = (position_value >> 8) & 0xFF  # High byte
-        data[1] = position_value & 0xFF  # Low byte
+        velocity_value = float_to_uint(velocity, V_MIN, V_MAX, 16)
+        kp_value = float_to_uint(kp, KP_MIN, KP_MAX, 16)
+        kd_value = float_to_uint(kd, KD_MIN, KD_MAX, 16)
+
+        # data[0] = position_value >> 8
+        # data[1] = position_value & 0xFF
 
         # Velocity data (bytes 2-3)
-        velocity_value = float_to_uint(velocity, V_MIN, V_MAX, 16)
-        data[2] = (velocity_value >> 8) & 0xFF  # High byte
-        data[3] = velocity_value & 0xFF  # Low byte
+        # data[2] = velocity_value >> 8
+        # data[3] = velocity_value & 0xFF
 
         # Kp data (bytes 4-5)
-        kp_value = float_to_uint(kp, KP_MIN, KP_MAX, 16)
-        data[4] = (kp_value >> 8) & 0xFF  # High byte
-        data[5] = kp_value & 0xFF  # Low byte
+        # data[4] = kp_value >> 8
+        # data[5] = kp_value & 0xFF
 
         # Kd data (bytes 6-7)
-        kd_value = float_to_uint(kd, KD_MIN, KD_MAX, 16)
-        data[6] = (kd_value >> 8) & 0xFF  # High byte
-        data[7] = kd_value & 0xFF  # Low byte
+        # data[6] = kd_value >> 8
+        # data[7] = kd_value & 0xFF
+
+        # Pack the data as big-endian 16-bit values ('>H')
+        data = struct.pack(">HHHH", position_value, velocity_value, kp_value, kd_value)
 
         # Torque data
         torque_value = float_to_uint(torque, T_MIN, T_MAX, 16)
@@ -185,17 +188,17 @@ class CyberGearMotor(EventEmitter):
         data[1] = addr >> 8
 
         # Encode types
-        if data_type == TYPE_UINT8:
+        if data_type == DataType.UINT8:
             data[4] = value
-        elif data_type == TYPE_INT16:
+        elif data_type == DataType.INT16:
             data[4:6] = struct.pack("<h", value)
-        elif data_type == TYPE_UINT16:
+        elif data_type == DataType.UINT16:
             data[4:6] = struct.pack("<H", value)
-        elif data_type == TYPE_INT32:
+        elif data_type == DataType.INT32:
             data[4:8] = struct.pack("<i", value)
-        elif data_type == TYPE_UINT32:
+        elif data_type == DataType.UINT32:
             data[4:8] = struct.pack("<I", value)
-        elif data_type == TYPE_FLOAT:
+        elif data_type == DataType.FLOAT:
             data[4:8] = struct.pack("<f", float(value))
         else:
             self._log(f"ERROR: No type processing for '{param_name}' ({data_type})")
@@ -328,22 +331,22 @@ class CyberGearMotor(EventEmitter):
             if parameter is None:
                 self._log(f"ERROR: Unknown parameter address: '{hex(addr)}'")
                 return
-            (_addr, param_name, data_type, _range, _permission) = parameter
+            (_addr, param_name, data_type, range, _permission) = parameter
             log_name = param_name
 
             # Read the value
             value = 0
-            if data_type == TYPE_UINT8:
+            if data_type == DataType.UINT8:
                 value = data[4]
-            elif data_type == TYPE_INT16:
+            elif data_type == DataType.INT16:
                 value = struct.unpack("<h", data[4:6])[0]
-            elif data_type == TYPE_UINT16:
+            elif data_type == DataType.UINT16:
                 value = struct.unpack("<H", data[4:6])[0]
-            elif data_type == TYPE_INT32:
+            elif data_type == DataType.INT32:
                 value = struct.unpack("<i", data[4:8])[0]
-            elif data_type == TYPE_UINT32:
+            elif data_type == DataType.UINT32:
                 value = struct.unpack("<I", data[4:8])[0]
-            elif data_type == TYPE_FLOAT:
+            elif data_type == DataType.FLOAT:
                 value = struct.unpack("<f", data[4:8])[0]
             else:
                 self._log(f"ERROR: No type processing for '{param_name}' ({data_type})")

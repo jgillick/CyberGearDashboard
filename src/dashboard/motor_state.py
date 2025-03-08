@@ -1,11 +1,6 @@
 from PySide6.QtCore import QAbstractTableModel, Qt
-from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QHBoxLayout,
     QTableView,
-    QLabel,
-    QPushButton,
-    QSizePolicy,
     QDockWidget,
 )
 
