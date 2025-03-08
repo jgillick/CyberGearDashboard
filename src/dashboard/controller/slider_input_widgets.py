@@ -74,8 +74,8 @@ class SliderInputWidget(QWidget):
         if self.range:
             (slider_min, slider_max) = self.range
             if self.type == DataType.FLOAT:
-                slider_min * self.float_multiplier
-                slider_max * self.float_multiplier
+                slider_min *= self.float_multiplier
+                slider_max *= self.float_multiplier
 
             self.slider = QSlider(
                 tickPosition=QSlider.TickPosition.TicksBelow,
