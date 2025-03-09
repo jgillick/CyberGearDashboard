@@ -5,7 +5,7 @@ from typing import List
 import can
 import time
 
-from motor import CyberGearMotor, RunMode
+from motor.motor_controller import CyberGearMotor, RunMode
 from dashboard.app import openDashboard
 
 bus: can.Bus

@@ -16,15 +16,17 @@ from dashboard.parameters_table import MotorParametersWidget
 from dashboard.controller.controller_dock import MotorControllerDockWidget
 from dashboard.motor_state import MotorStateWidget
 from dashboard.watcher import MotorWatcher
+from dashboard.charts import ChartLayout
 
 CAN_BITRATE = 1000000
 
 
 class AppWindow(QMainWindow):
-    bus: can.Bus
-    motor: CyberGearMotor
+    bus: can.Bus = None
+    motor: CyberGearMotor = None
     watcher: MotorWatcher
     settings: QSettings
+    charts: ChartLayout
 
     def __init__(
         self, channel: str, interface: str, motor_id: int, verbose: bool = False
@@ -45,14 +47,16 @@ class AppWindow(QMainWindow):
         """Construct the layout"""
         layout = QVBoxLayout()
 
-        self.state_dock = MotorStateWidget(self.motor, self)
-        self.parameter_dock = MotorParametersWidget(self.motor, self)
-        self.controller_dock = MotorControllerDockWidget(self.motor, self)
+        self.charts = ChartLayout(self.motor, self.watcher)
+        self.state_dock = MotorStateWidget(self.motor, charts=self.charts)
+        self.parameter_dock = MotorParametersWidget(self.motor)
+        self.controller_dock = MotorControllerDockWidget(self.motor)
 
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.state_dock)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.parameter_dock)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.controller_dock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.state_dock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.parameter_dock)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.controller_dock)
 
+        layout.addLayout(self.charts)
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
@@ -90,6 +94,7 @@ class AppWindow(QMainWindow):
     ) -> bool:
         """Connect to the CAN bus and the motor controller"""
         try:
+            print("Connecting to motor...")
             self.bus = can.interface.Bus(
                 interface=interface,
                 channel=channel,
@@ -126,11 +131,12 @@ class AppWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """Cleanup before we exit"""
-
-        if self.motor:
+        if self.watcher is not None:
+            self.watcher.stop_watching()
+        if self.motor is not None:
             self.motor.stop()
             self.motor.disconnect()
-        if self.bus:
+        if self.bus is not None:
             # Only save window position if we had connected to the bus
             self.save_window_pos()
 

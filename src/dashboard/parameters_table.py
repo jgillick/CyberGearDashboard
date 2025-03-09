@@ -1,9 +1,5 @@
 from typing import List
-from PySide6.QtCore import (
-    QAbstractTableModel,
-    QSortFilterProxyModel,
-    Qt,
-)
+from PySide6.QtCore import QAbstractTableModel, QSortFilterProxyModel, Qt, QPoint
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QVBoxLayout,
@@ -14,6 +10,8 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QLineEdit,
     QWidget,
+    QAbstractItemView,
+    QMenu,
 )
 
 from motor import CyberGearMotor
@@ -80,7 +78,7 @@ class ParameterTableModel(QAbstractTableModel):
         return None
 
     def flags(self, index):
-        flags = Qt.ItemIsEnabled
+        flags = Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
         col = index.column()
         row = index.row()
@@ -89,7 +87,7 @@ class ParameterTableModel(QAbstractTableModel):
                 self.param_list[row]
             )
             if permissions == "rw":
-                flags = flags | Qt.ItemIsSelectable | Qt.ItemIsEditable
+                flags = flags | Qt.ItemIsEditable
 
         return flags
 
@@ -104,7 +102,6 @@ class ParameterTableModel(QAbstractTableModel):
                     value = float(value)
                 else:
                     value = int(value)
-                print(f"SET {name} {value}")
                 self.motor.set_parameter(name, value)
                 self.motor.request_parameter(name)
                 return True
@@ -114,6 +111,7 @@ class ParameterTableModel(QAbstractTableModel):
 class MotorParametersWidget(QDockWidget):
     motor: CyberGearMotor
     model: ParameterTableModel
+    table: QTableView
     filtered_model: QSortFilterProxyModel
 
     def __init__(self, motor: CyberGearMotor, *args, **kwargs):
@@ -126,6 +124,16 @@ class MotorParametersWidget(QDockWidget):
 
         self.build_layout()
 
+    def open_context_menu(self, position: QPoint):
+        index = self.table.indexAt(position)
+        print("context?")
+        if index.isValid():
+            menu = QMenu(self)
+            graph_action = menu.addAction("Graph")
+            action = menu.exec(self.table.viewport().mapToGlobal(position))
+            if action == graph_action:
+                print(f"Action 1 triggered on row {index.row()}")
+
     def build_layout(self):
         self.setWindowTitle("Parameters")
 
@@ -137,8 +145,11 @@ class MotorParametersWidget(QDockWidget):
         search_field = QLineEdit(placeholderText="search", clearButtonEnabled=True)
         search_field.textChanged.connect(self.search)
 
-        table = QTableView()
-        table.setModel(self.filtered_model)
+        self.table = QTableView()
+        self.table.setModel(self.filtered_model)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.open_context_menu)
 
         search_layout = QHBoxLayout()
         search_layout.addWidget(refresh_btn)
@@ -146,7 +157,7 @@ class MotorParametersWidget(QDockWidget):
 
         layout = QVBoxLayout()
         layout.addLayout(search_layout)
-        layout.addWidget(table)
+        layout.addWidget(self.table)
 
         root = QWidget()
         root.setLayout(layout)

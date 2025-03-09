@@ -5,45 +5,12 @@ from typing import List
 import can
 import time
 
-from motor import CyberGearMotor, RunMode
+from motor.motor_controller import CyberGearMotor, RunMode
 
 bus: can.Bus
 motor: CyberGearMotor
 
-CAN_BITRATE = 1000000
-
-
-def connect(channel: str, interface: str, motor_id: int) -> None:
-    global bus, motor, busNotifier
-
-    # Connect to the bus
-    print("Connecting...")
-    bus = can.interface.Bus(
-        interface=interface,
-        channel=channel,
-        bitrate=CAN_BITRATE,
-    )
-    print("Connected!")
-
-    # Create the motor controller
-    motor = CyberGearMotor(motor_id, bus=bus, verbose=True)
-
-    # Init motor
-    motor.enable()
-    motor.mode(RunMode.POSITION)
-    motor.set_parameter("limit_spd", 10)
-
-    # Loop back and forth
-    while True:
-        # motor.control_position(position=-6, velocity=1, torque=1, kp=10, kd=0.25)
-        motor.set_parameter("loc_ref", -6)
-        motor.get_position()
-        time.sleep(2)
-
-        # motor.control_position(position=5, velocity=1, torque=1, kp=10, kd=0.25)
-        motor.set_parameter("loc_ref", 4)
-        motor.get_position()
-        time.sleep(2)
+DEFAULT_CAN_BITRATE = 1000000
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:
@@ -74,6 +41,23 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         choices=sorted(can.VALID_INTERFACES),
     )
 
+    parser.add_argument(
+        "-b",
+        "--bitrate",
+        dest="bitrate",
+        help="""CAN bus communication bitrate""",
+        default=DEFAULT_CAN_BITRATE,
+        type=int,
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        help="""Verbose output""",
+        action=argparse.BooleanOptionalAction,
+    )
+
     if not args:
         parser.print_help(sys.stderr)
         raise SystemExit(errno.EINVAL)
@@ -83,8 +67,37 @@ def parse_args(args: List[str]) -> argparse.Namespace:
 
 
 def main() -> None:
+    global bus, motor
     args = parse_args(sys.argv[1:])
-    connect(args.channel, args.interface, args.motor_id)
+
+    # Connect to the bus
+    print("Connecting...")
+    bus = can.interface.Bus(
+        interface=args.interface,
+        channel=args.channel,
+        bitrate=args.bitrate,
+    )
+    print("Connected!")
+
+    # Create the motor controller
+    motor = CyberGearMotor(args.motor_id, bus=bus, verbose=args.verbose)
+
+    # Init motor
+    motor.enable()
+    motor.mode(RunMode.POSITION)
+    motor.set_parameter("limit_spd", 10)
+
+    # Loop back and forth
+    while True:
+        # motor.control_position(position=-6, velocity=1, torque=1, kp=10, kd=0.25)
+        motor.set_parameter("loc_ref", -6)
+        motor.get_position()
+        time.sleep(2)
+
+        # motor.control_position(position=5, velocity=1, torque=1, kp=10, kd=0.25)
+        motor.set_parameter("loc_ref", 4)
+        motor.get_position()
+        time.sleep(2)
 
 
 if __name__ == "__main__":

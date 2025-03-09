@@ -1,7 +1,9 @@
 import traceback
 from typing import Literal
 
-EventNames = Literal["state_changed", "param_changed", "fault", "warn"]
+EventNames = Literal[
+    "state_changed", "param_changed", "has_fault", "fault_cleared", "warn"
+]
 
 
 class EventEmitter:

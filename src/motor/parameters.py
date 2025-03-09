@@ -180,9 +180,6 @@ Parameters = (
     (0x7020, "spd_ki", DataType.FLOAT, (0, 200.0), READ_WRITE),  # Speed of ki
 )
 
-# Create the type for parameter names
-ParamNames = set(param[1] for param in Parameters)
-
 # For type hints
 ParameterName = Literal[
     # "Name",

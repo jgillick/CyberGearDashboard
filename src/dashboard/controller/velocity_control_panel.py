@@ -1,12 +1,14 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QPushButton,
     QVBoxLayout,
     QSpacerItem,
     QSizePolicy,
+    QCheckBox,
 )
 
-from motor import CyberGearMotor, RunMode
+from motor.motor_controller import CyberGearMotor, RunMode
 
 from dashboard.controller.abc_control_panel import AbstractModePanel
 from .slider_input_widgets import SliderMotorInputWidget
@@ -18,6 +20,8 @@ class VelocityControlPanel(QWidget, metaclass=AbstractModePanel):
     velocity_kp: SliderMotorInputWidget
     velocity_ki: SliderMotorInputWidget
     max_current: SliderMotorInputWidget
+    form: QWidget
+    enabled: QCheckBox
 
     def __init__(self, motor: CyberGearMotor, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -26,9 +30,8 @@ class VelocityControlPanel(QWidget, metaclass=AbstractModePanel):
 
     def load(self):
         """Reset the screen and put the motor in the correct mode"""
-        self.motor.enable()
-        self.motor.mode(RunMode.VELOCITY)
-
+        self.enabled.setCheckState(Qt.CheckState.Unchecked)
+        self.form.setEnabled(False)
         self.velocity.reset()
         self.velocity_kp.reset()
         self.velocity_ki.reset()
@@ -45,7 +48,21 @@ class VelocityControlPanel(QWidget, metaclass=AbstractModePanel):
         self.velocity_ki.send_to_motor()
         self.velocity.send_to_motor()
 
+    def set_enabled_changed(self, state: Qt.CheckState):
+        """The enabled checkbox has changed"""
+        is_enabled = True if state == Qt.CheckState.Checked else False
+        self.form.setEnabled(is_enabled)
+        if is_enabled:
+            self.motor.enable()
+            self.motor.mode(RunMode.VELOCITY)
+        else:
+            self.motor.stop()
+
     def build_layout(self):
+        self.enabled = QCheckBox("Enabled")
+        self.enabled.setCheckState(Qt.CheckState.Unchecked)
+        self.enabled.checkStateChanged.connect(self.set_enabled_changed)
+
         self.velocity = SliderMotorInputWidget(
             motor=self.motor, label="Velocity (rad/s)", param_name="spd_ref"
         )
@@ -66,11 +83,18 @@ class VelocityControlPanel(QWidget, metaclass=AbstractModePanel):
             20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
         )
 
+        form_layout = QVBoxLayout()
+        form_layout.addWidget(self.velocity)
+        form_layout.addWidget(self.velocity_kp)
+        form_layout.addWidget(self.velocity_ki)
+        form_layout.addWidget(self.max_current)
+        form_layout.addWidget(button)
+
+        self.form = QWidget()
+        self.form.setLayout(form_layout)
+
         layout = QVBoxLayout()
-        layout.addWidget(self.velocity)
-        layout.addWidget(self.velocity_kp)
-        layout.addWidget(self.velocity_ki)
-        layout.addWidget(self.max_current)
-        layout.addWidget(button)
+        layout.addWidget(self.enabled)
+        layout.addWidget(self.form)
         layout.addItem(spacer)
         self.setLayout(layout)

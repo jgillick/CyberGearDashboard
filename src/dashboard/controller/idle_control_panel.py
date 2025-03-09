@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget
 
-from motor import (
+from motor.motor_controller import (
     CyberGearMotor,
 )
 
