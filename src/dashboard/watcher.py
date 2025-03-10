@@ -34,7 +34,8 @@ class MotorWatcher(threading.Thread):
         self.is_watching = True
         while self.is_watching:
             self.motor.request_motor_state()
-            self.motor.request_motor_fault_status()
             for param in self.params:
                 self.motor.request_parameter(param)
+            self.motor.request_motor_fault_status()
+
             time.sleep(UPDATE_RATE)

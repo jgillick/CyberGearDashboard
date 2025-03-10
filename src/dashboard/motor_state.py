@@ -93,23 +93,23 @@ class MotorStateWidget(QDockWidget):
         self.fault_list.setVisible(has_fault)
         self.fault_list.adjustSize()
 
-    def open_context_menu(self, position: QPoint):
-        index = self.table.indexAt(position)
-        if index.isValid():
-            row = index.row()
-            name = self.model.data(self.model.index(row, 0))
-            has_chart = self.charts.has_chart("state", name)
+    # def open_context_menu(self, position: QPoint):
+    #     index = self.table.indexAt(position)
+    #     if index.isValid():
+    #         row = index.row()
+    #         name = self.model.data(self.model.index(row, 0))
+    #         has_chart = self.charts.has_chart("state", name)
 
-            menu = QMenu(self)
-            graph_action = menu.addAction(
-                f"Chart {name}" if not has_chart else "Remove chart"
-            )
-            action = menu.exec(self.table.viewport().mapToGlobal(position))
-            if action == graph_action:
-                if has_chart:
-                    self.charts.remove_chart("state", name)
-                else:
-                    self.charts.add_chart("state", name)
+    #         menu = QMenu(self)
+    #         graph_action = menu.addAction(
+    #             f"Chart {name}" if not has_chart else "Remove chart"
+    #         )
+    #         action = menu.exec(self.table.viewport().mapToGlobal(position))
+    #         if action == graph_action:
+    #             if has_chart:
+    #                 self.charts.remove_chart("state", name)
+    #             else:
+    #                 self.charts.add_chart("state", name)
 
     def build_layout(self):
         self.setWindowTitle("Motor state")
@@ -127,8 +127,8 @@ class MotorStateWidget(QDockWidget):
         self.table = QTableView()
         self.table.setModel(self.model)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self.open_context_menu)
+        # self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        # self.table.customContextMenuRequested.connect(self.open_context_menu)
 
         root = QWidget()
         layout = QVBoxLayout()

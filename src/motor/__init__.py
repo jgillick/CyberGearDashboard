@@ -1,5 +1,6 @@
 from motor.motor_controller import CyberGearMotor
-from motor.parameters import ParameterName
+from motor.parameters import ParameterName, parameter_names
+from motor.state import StateName, state_names
 from motor.constants import (
     RunMode,
     StateName,
