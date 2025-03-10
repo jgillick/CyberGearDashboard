@@ -1,7 +1,7 @@
 from typing import Literal
 from enum import Enum
 
-HOST_CAN_ID = 0
+DEFAULT_HOST_CAN_ID = 0
 PAUSE_AFTER_SEND = 0.01
 
 P_MIN = -12.5
@@ -25,7 +25,6 @@ class ModeStatus(Enum):
 
 
 class RunMode(Enum):
-    STOPPED = -1
     OPERATION_CONTROL = 0
     POSITION = 1
     VELOCITY = 2

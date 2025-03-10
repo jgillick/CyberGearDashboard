@@ -29,13 +29,18 @@ class AppWindow(QMainWindow):
     charts: ChartLayout
 
     def __init__(
-        self, channel: str, interface: str, motor_id: int, verbose: bool = False
+        self,
+        channel: str,
+        interface: str,
+        motor_id: int,
+        verbose: bool = False,
+        bitrate=CAN_BITRATE,
     ):
         super().__init__()
         self.settings = QSettings("jgillick", "PyCyberGearDashboard")
 
         # Connect to motor
-        self.connect(channel, interface, motor_id, verbose)
+        self.connect(channel, interface, motor_id, verbose, bitrate)
 
         # UI
         self.restore_window_pos()
@@ -90,7 +95,7 @@ class AppWindow(QMainWindow):
         self.controller_dock.visibilityChanged.connect(view_control.setChecked)
 
     def connect(
-        self, channel: str, interface: str, motor_id: int, verbose: bool
+        self, channel: str, interface: str, motor_id: int, verbose: bool, bitrate: int
     ) -> bool:
         """Connect to the CAN bus and the motor controller"""
         try:
@@ -98,7 +103,7 @@ class AppWindow(QMainWindow):
             self.bus = can.interface.Bus(
                 interface=interface,
                 channel=channel,
-                bitrate=CAN_BITRATE,
+                bitrate=bitrate,
             )
             print("Connected!")
 
@@ -145,7 +150,13 @@ class AppWindow(QMainWindow):
         event.accept()
 
 
-def openDashboard(channel: str, interface: str, motor_id: int, verbose: bool = False):
+def openDashboard(
+    channel: str,
+    interface: str,
+    motor_id: int,
+    verbose: bool = False,
+    bitrate=CAN_BITRATE,
+):
     app = QApplication(sys.argv)
     window = AppWindow(channel, interface, motor_id, verbose)
     window.show()

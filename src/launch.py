@@ -11,7 +11,7 @@ from dashboard.app import openDashboard
 bus: can.Bus
 motor: CyberGearMotor
 
-CAN_BITRATE = 1000000
+DEFAULT_CAN_BITRATE = 1000000
 
 
 def parse_args(args: List[str]) -> argparse.Namespace:
@@ -42,6 +42,23 @@ def parse_args(args: List[str]) -> argparse.Namespace:
         choices=sorted(can.VALID_INTERFACES),
     )
 
+    parser.add_argument(
+        "-b",
+        "--bitrate",
+        dest="bitrate",
+        help="""CAN bus communication bitrate""",
+        default=DEFAULT_CAN_BITRATE,
+        type=int,
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        help="""Verbose output""",
+        action=argparse.BooleanOptionalAction,
+    )
+
     if not args:
         parser.print_help(sys.stderr)
         raise SystemExit(errno.EINVAL)
@@ -56,7 +73,8 @@ def main() -> None:
         channel=args.channel,
         interface=args.interface,
         motor_id=args.motor_id,
-        verbose=False,
+        verbose=args.verbose,
+        bitrate=args.bitrate,
     )
 
 

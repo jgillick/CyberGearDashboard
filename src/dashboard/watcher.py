@@ -5,7 +5,7 @@ from typing import Set
 from motor import CyberGearMotor, ParameterName
 
 # How often to request updates from the motor (in seconds)
-UPDATE_RATE = 0.5
+UPDATE_RATE = 0.1
 
 
 class MotorWatcher(threading.Thread):

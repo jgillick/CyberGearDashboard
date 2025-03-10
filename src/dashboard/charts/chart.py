@@ -8,7 +8,7 @@ import pyqtgraph as pg
 from motor import CyberGearMotor, StateName
 
 MAX_DATA_POINTS = 100
-UPDATE_RATE_MS = 200
+UPDATE_RATE_MS = 100
 
 
 class Chart(QWidget):
@@ -44,7 +44,9 @@ class Chart(QWidget):
         self.y = [math.nan] * MAX_DATA_POINTS
 
     def update_data(self):
-        value = self.motor.state[self.data_name]
+        value = self.motor.state.get(self.data_name)
+        if value is None:
+            return
 
         # Shift the data over
         self.y[1:] = self.y[:-1]

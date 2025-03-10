@@ -14,7 +14,7 @@ from motor.parameters import (
 from motor.constants import (
     Command,
     RunMode,
-    HOST_CAN_ID,
+    DEFAULT_HOST_CAN_ID,
     KD_MAX,
     KD_MIN,
     KP_MAX,
@@ -33,6 +33,7 @@ class CyberGearMotor(EventEmitter):
     """Controller and state manager for the CyberGear motor"""
 
     motor_id: int
+    host_id: int
     bus: can.Bus
     notifier: can.Notifier
     verbose: bool
@@ -40,9 +41,16 @@ class CyberGearMotor(EventEmitter):
     params: dict
     faults: dict
 
-    def __init__(self, motor_id: int, bus: can.Bus, verbose: bool = False) -> None:
+    def __init__(
+        self,
+        motor_id: int,
+        bus: can.Bus,
+        verbose: bool = False,
+        host_id: int = DEFAULT_HOST_CAN_ID,
+    ) -> None:
         self.verbose = verbose
         self.motor_id = motor_id
+        self.host_id = host_id
         self.params = {}
         self.state = {}
         self.faults = {}
@@ -60,15 +68,17 @@ class CyberGearMotor(EventEmitter):
         self._send(Command.ENABLE)
 
     def stop(self):
-        self._send(Command.STOP, extended_data=HOST_CAN_ID)
+        self._send(Command.STOP, extended_data=self.host_id)
 
     def mode(self, mode: RunMode):
         """Set the motor run mode"""
-        if mode == RunMode.STOPPED:
-            self.set_parameter("run_mode", RunMode.OPERATION_CONTROL.value)
-            self.stop()
-        else:
-            self.set_parameter("run_mode", mode.value)
+        self.set_parameter("run_mode", mode.value)
+
+    def set_zero_position(self):
+        """Set the current motor position as the zero position"""
+        data = bytearray(8)
+        data[0] = 1
+        self._send(Command.SET_ZERO, data=data)
 
     def request_motor_state(self):
         """Request the current motor state"""
@@ -179,6 +189,29 @@ class CyberGearMotor(EventEmitter):
         self._log(f"Send: {Command.READ_PARAM.name} - {param_name}")
         self._send(Command.READ_PARAM, data=data, log=False)
 
+    def change_motor_id(self, new_motor_id: int):
+        """Change the motor's CAN ID"""
+        # Encode ID
+        arbitration_id = 0
+        arbitration_id |= self.motor_id & 0xFF  # Bits 7~0
+        arbitration_id |= (self.host_id & 0xFF) << 8  # Bits 15~8
+        arbitration_id |= (new_motor_id & 0xFF) << 16  # Bits 23~16
+        arbitration_id |= (Command.CHANGE_CAN_ID.value & 0x1F) << 24  # Bits 28~24
+
+        # Create message
+        data = bytearray(8)
+        data[0] = 1
+        msg = can.Message(
+            arbitration_id=arbitration_id,
+            data=data,
+            is_extended_id=True,
+        )
+
+        self.bus.send(msg)
+        self._log(f"Send: {Command.CHANGE_CAN_ID.name}")
+        self.motor_id = new_motor_id
+        time.sleep(PAUSE_AFTER_SEND)
+
     def _log(self, message: str):
         """If verbose is True, output some logging"""
         if self.verbose:
@@ -238,7 +271,7 @@ class CyberGearMotor(EventEmitter):
         self._log(f" > from: {from_id}, to: {destination_id}")
 
         # Filter out messages not from our motor
-        if destination_id != HOST_CAN_ID:
+        if destination_id != self.host_id:
             return
         if from_id != self.motor_id:
             return
