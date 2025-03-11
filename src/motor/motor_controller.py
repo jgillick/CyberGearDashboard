@@ -107,21 +107,6 @@ class CyberGearMotor(EventEmitter):
         kp_value = float_to_uint(kp, KP_MIN, KP_MAX, 16)
         kd_value = float_to_uint(kd, KD_MIN, KD_MAX, 16)
 
-        # data[0] = position_value >> 8
-        # data[1] = position_value & 0xFF
-
-        # Velocity data (bytes 2-3)
-        # data[2] = velocity_value >> 8
-        # data[3] = velocity_value & 0xFF
-
-        # Kp data (bytes 4-5)
-        # data[4] = kp_value >> 8
-        # data[5] = kp_value & 0xFF
-
-        # Kd data (bytes 6-7)
-        # data[6] = kd_value >> 8
-        # data[7] = kd_value & 0xFF
-
         # Pack the data as big-endian 16-bit values ('>H')
         data = struct.pack(">HHHH", position_value, velocity_value, kp_value, kd_value)
 
