@@ -38,15 +38,15 @@ def extract_type(data: bytearray, to_type: DataType) -> Real:
     if to_type == DataType.UINT8:
         return data[0]
     elif to_type == DataType.INT16:
-        return struct.unpack("<h", data)[0]
+        return struct.unpack("<h", data[0:2])[0]
     elif to_type == DataType.UINT16:
-        return struct.unpack("<H", data)[0]
+        return struct.unpack("<H", data[0:2])[0]
     elif to_type == DataType.INT32:
-        return struct.unpack("<i", data)[0]
+        return struct.unpack("<i", data[0:4])[0]
     elif to_type == DataType.UINT32:
-        return struct.unpack("<I", data)[0]
+        return struct.unpack("<I", data[0:4])[0]
     elif to_type == DataType.FLOAT:
-        return struct.unpack("<f", data)[0]
+        return struct.unpack("<f", data[0:4])[0]
     return 0
 
 

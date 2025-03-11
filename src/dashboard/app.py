@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 
 from motor import CyberGearMotor
 
-from dashboard.parameters_table import MotorParametersWidget
+from dashboard.parameters import ParametersDockWidget, ConfigDockWidget
 from dashboard.controller.controller_dock import MotorControllerDockWidget
 from dashboard.motor_state import MotorStateWidget
 from dashboard.watcher import MotorWatcher
@@ -54,12 +54,15 @@ class AppWindow(QMainWindow):
 
         self.charts = ChartLayout(self.motor, self.watcher)
         self.state_dock = MotorStateWidget(self.motor, charts=self.charts)
-        self.parameter_dock = MotorParametersWidget(self.motor)
+        self.parameter_dock = ParametersDockWidget(self.motor)
+        self.config_dock = ConfigDockWidget(self.motor)
         self.controller_dock = MotorControllerDockWidget(self.motor)
 
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.state_dock)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.parameter_dock)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.controller_dock)
+
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.state_dock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.config_dock)
+        self.tabifyDockWidget(self.config_dock, self.parameter_dock)
 
         layout.addLayout(self.charts)
         widget = QWidget()
@@ -68,31 +71,13 @@ class AppWindow(QMainWindow):
 
     def build_menubar(self):
         """Setup the app menubar"""
-        view_motor_state = QAction("Motor state", self)
-        view_motor_state.setCheckable(True)
-
-        view_parameters = QAction("Parameters", self)
-        view_parameters.setCheckable(True)
-
-        view_control = QAction("Control", self)
-        view_control.setCheckable(True)
-
         menu = self.menuBar()
 
         view_menu = menu.addMenu("&View")
-        view_menu.addAction(view_motor_state)
-        view_menu.addAction(view_parameters)
-        view_menu.addAction(view_control)
-
-        # Connect menus to dock widgets
-        view_motor_state.toggled.connect(self.state_dock.setVisible)
-        self.state_dock.visibilityChanged.connect(view_motor_state.setChecked)
-
-        self.parameter_dock.visibilityChanged.connect(view_parameters.setChecked)
-        view_parameters.toggled.connect(self.parameter_dock.setVisible)
-
-        view_control.toggled.connect(self.controller_dock.setVisible)
-        self.controller_dock.visibilityChanged.connect(view_control.setChecked)
+        view_menu.addAction(self.controller_dock.toggleViewAction())
+        view_menu.addAction(self.state_dock.toggleViewAction())
+        view_menu.addAction(self.parameter_dock.toggleViewAction())
+        view_menu.addAction(self.config_dock.toggleViewAction())
 
     def connect(
         self, channel: str, interface: str, motor_id: int, verbose: bool, bitrate: int
@@ -158,6 +143,6 @@ def openDashboard(
     bitrate=CAN_BITRATE,
 ):
     app = QApplication(sys.argv)
-    window = AppWindow(channel, interface, motor_id, verbose)
+    window = AppWindow(channel, interface, motor_id, verbose, bitrate)
     window.show()
     app.exec()

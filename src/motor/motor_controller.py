@@ -198,7 +198,7 @@ class CyberGearMotor(EventEmitter):
         self._log(f"Send: {Command.READ_PARAM.name} - {param_name}")
         self._send(Command.READ_PARAM, data=data, log=False)
 
-    def request_config_parameter(self, name: ConfigName):
+    def request_config(self, name: ConfigName):
         """Send a request to receive a motor config parameter value"""
         try:
             config = get_config_by_name(name)
