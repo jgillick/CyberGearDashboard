@@ -17,11 +17,18 @@ T_MAX = 12.0
 IQ_MIN = -27.0
 IQ_MAX = 27.0
 
+READ_ONLY = "r"
+READ_WRITE = "rw"
 
-class ModeStatus(Enum):
-    RESET = 0
-    CALIBRATION = 1
-    RUN = 2
+
+class DataType(Enum):
+    UINT8 = 0x00
+    UINT16 = 0x02
+    INT16 = 0x03
+    UINT32 = 0x04
+    INT32 = 0x05
+    FLOAT = 0x06
+    STRING = 0x0A
 
 
 class RunMode(Enum):
@@ -39,6 +46,8 @@ class Command(Enum):
     STOP = 4
     SET_ZERO = 6
     CHANGE_CAN_ID = 7
+    WRITE_CONFIG = 8
+    READ_CONFIG = 9
     READ_PARAM = 17
     WRITE_PARAM = 18
     FAULT = 21

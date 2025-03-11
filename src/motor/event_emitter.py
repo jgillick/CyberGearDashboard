@@ -2,7 +2,12 @@ import traceback
 from typing import Literal
 
 EventNames = Literal[
-    "state_changed", "param_changed", "has_fault", "fault_cleared", "warn"
+    "state_changed",
+    "config_received",
+    "param_received",
+    "has_fault",
+    "fault_cleared",
+    "warn",
 ]
 
 

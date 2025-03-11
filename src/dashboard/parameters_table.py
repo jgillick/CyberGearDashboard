@@ -36,7 +36,7 @@ class ParameterTableModel(QAbstractTableModel):
         ]
         self.param_list.sort()
 
-        motor.on("param_changed", self.onItemChanged)
+        motor.on("param_received", self.onItemChanged)
         self.reload()
 
     def reload(self):

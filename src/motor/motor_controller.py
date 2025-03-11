@@ -1,19 +1,24 @@
 import can
 import time
 import struct
+import traceback
+from numbers import Real
 from typing import Union
 
-from motor.utils import float_to_uint, uint_to_float
+from motor.utils import float_to_uint, uint_to_float, extract_type, encode_to_bytes
 from motor.event_emitter import EventEmitter
 from motor.parameters import (
+    ConfigName,
     ParameterName,
-    DataType,
     get_parameter_by_name,
     get_parameter_by_addr,
+    get_config_by_addr,
+    get_config_by_name,
 )
 from motor.constants import (
     Command,
     RunMode,
+    DataType,
     DEFAULT_HOST_CAN_ID,
     KD_MAX,
     KD_MIN,
@@ -39,6 +44,7 @@ class CyberGearMotor(EventEmitter):
     verbose: bool
     state: dict
     params: dict
+    config: dict
     faults: dict
 
     def __init__(
@@ -52,6 +58,7 @@ class CyberGearMotor(EventEmitter):
         self.motor_id = motor_id
         self.host_id = host_id
         self.params = {}
+        self.config = {}
         self.state = {}
         self.faults = {}
 
@@ -124,14 +131,11 @@ class CyberGearMotor(EventEmitter):
         # Send
         self._send(Command.POSITION, data=data, extended_data=torque_value)
 
-    def get_position(self):
-        """Get the current motor position"""
-        self.request_parameter("mechPos")
-
-    def set_parameter(self, param_name: ParameterName, value: Union[int, float]):
+    def set_parameter(self, param_name: ParameterName, value: Real):
         """Send a parameter value to the motor"""
-        param = get_parameter_by_name(param_name)
-        if param is None:
+        try:
+            param = get_parameter_by_name(param_name)
+        except:
             self._log(f"ERROR: Could not find parameter by name: '{param_name}'")
             return
         (addr, _name, data_type, range, permission) = param
@@ -139,44 +143,49 @@ class CyberGearMotor(EventEmitter):
             self._log(f"ERROR: Cannot write to parameter '{param_name}'")
             return
 
-        # Clamp value to range
-        if range is not None:
-            (min, max) = range
-            if value > max:
-                self._log(f"WARN: Max value for {param_name} is {max}")
-                value = max
-            elif value < min:
-                self._log(f"WARN: Min value for {param_name} is {min}")
-                value = min
-
         # Create message data
-        data = bytearray(8)
+        data = bytearray(4)
         data[0] = addr & 0x00FF
         data[1] = addr >> 8
+        data[2] = 0x00
+        data[3] = 0x00
 
         # Encode types
-        if data_type == DataType.UINT8:
-            data[4] = value
-        elif data_type == DataType.INT16:
-            data[4:6] = struct.pack("<h", value)
-        elif data_type == DataType.UINT16:
-            data[4:6] = struct.pack("<H", value)
-        elif data_type == DataType.INT32:
-            data[4:8] = struct.pack("<i", value)
-        elif data_type == DataType.UINT32:
-            data[4:8] = struct.pack("<I", value)
-        elif data_type == DataType.FLOAT:
-            data[4:8] = struct.pack("<f", float(value))
-        else:
-            self._log(f"ERROR: No type processing for '{param_name}' ({data_type})")
+        encoded_value = encode_to_bytes(value, data_type, range)
+        data.extend(encoded_value)
+
+        self._send(Command.WRITE_PARAM, data=data)
+
+    def set_config(self, name: ConfigName, value: Real):
+        """Send a config value to the motor"""
+        try:
+            param = get_config_by_name(name)
+        except:
+            self._log(f"ERROR: Could not find config param by name: '{name}'")
             return
+        (addr, _name, data_type, range, permission) = param
+        if permission != "rw":
+            self._log(f"ERROR: Cannot write to config value '{name}'")
+            return
+
+        # Create message data
+        data = bytearray(4)
+        data[0] = addr & 0x00FF
+        data[1] = addr >> 8
+        data[2] = data_type.value
+        data[3] = 0x00
+
+        # Encode types
+        encoded_value = encode_to_bytes(value, data_type, range)
+        data.extend(encoded_value)
 
         self._send(Command.WRITE_PARAM, data=data)
 
     def request_parameter(self, param_name: ParameterName):
         """Send a request to receive a motor parameter"""
-        param = get_parameter_by_name(param_name)
-        if param is None:
+        try:
+            param = get_parameter_by_name(param_name)
+        except:
             self._log(f"ERROR: Could not find parameter by name: '{param_name}'")
             return
         addr = param[0]
@@ -188,6 +197,23 @@ class CyberGearMotor(EventEmitter):
         # Send
         self._log(f"Send: {Command.READ_PARAM.name} - {param_name}")
         self._send(Command.READ_PARAM, data=data, log=False)
+
+    def request_config_parameter(self, name: ConfigName):
+        """Send a request to receive a motor config parameter value"""
+        try:
+            config = get_config_by_name(name)
+        except:
+            self._log(f"ERROR: Could not find a config parameter by name: '{name}'")
+            return
+        addr = config[0]
+
+        # Copy the parameter value (as bytes) into the first 2 bytes of data
+        data = bytearray(8)
+        data[0:2] = addr.to_bytes(2, byteorder="little")
+
+        # Send
+        self._log(f"Send: {Command.READ_CONFIG.name} - {name}")
+        self._send(Command.READ_CONFIG, data=data, log=True)
 
     def change_motor_id(self, new_motor_id: int):
         """Change the motor's CAN ID"""
@@ -268,7 +294,7 @@ class CyberGearMotor(EventEmitter):
 
         extended_data = (msg.arbitration_id >> 8) & 0xFFFF
         ext_data_bytes = extended_data.to_bytes(16, "little")
-        self._log(f" > from: {from_id}, to: {destination_id}")
+        self._log(f" > {command.name} from: {from_id}, to: {destination_id}")
 
         # Filter out messages not from our motor
         if destination_id != self.host_id:
@@ -278,6 +304,8 @@ class CyberGearMotor(EventEmitter):
 
         if command == Command.STATE:
             self._process_received_state(msg.data, ext_data_bytes)
+        elif command == Command.READ_CONFIG:
+            self._processed_received_config(msg.data)
         elif command == Command.READ_PARAM:
             self._processed_received_param(msg.data)
         elif command == Command.FAULT:
@@ -328,35 +356,52 @@ class CyberGearMotor(EventEmitter):
         try:
             # Get the property config by address
             addr = data[1] << 8 | data[0]
-            parameter = get_parameter_by_addr(addr)
-            if parameter is None:
+            log_name = hex(addr)
+            try:
+                parameter = get_parameter_by_addr(addr)
+            except:
                 self._log(f"ERROR: Unknown parameter address: '{hex(addr)}'")
                 return
-            (_addr, param_name, data_type, range, _permission) = parameter
-            log_name = param_name
+            (_addr, name, data_type, range, _permission) = parameter
+            log_name = name
 
             # Read the value
-            value = 0
-            if data_type == DataType.UINT8:
-                value = data[4]
-            elif data_type == DataType.INT16:
-                value = struct.unpack("<h", data[4:6])[0]
-            elif data_type == DataType.UINT16:
-                value = struct.unpack("<H", data[4:6])[0]
-            elif data_type == DataType.INT32:
-                value = struct.unpack("<i", data[4:8])[0]
-            elif data_type == DataType.UINT32:
-                value = struct.unpack("<I", data[4:8])[0]
-            elif data_type == DataType.FLOAT:
-                value = struct.unpack("<f", data[4:8])[0]
-            else:
-                self._log(f"ERROR: No type processing for '{param_name}' ({data_type})")
-                return
+            value = extract_type(data[4:], data_type)
 
-            self._log(f" > {param_name} = {value}")
-            self.params[param_name] = value
-            self.emit("param_changed", param_name, value)
+            self._log(f" > {name} = {value}")
+            self.params[name] = value
+            self.emit("param_received", name, value)
         except Exception as e:
+            traceback.print_exc()
+            self._log(f"ERROR: Could not process parameter value ({log_name}): {e}")
+
+    def _processed_received_config(self, data: bytearray):
+        """A requested motor config param has been received"""
+        log_name = ""
+        try:
+            # Get the property config by address
+            addr = data[1] << 8 | data[0]
+            log_name = hex(addr)
+            try:
+                parameter = get_config_by_addr(addr)
+            except:
+                self._log(f"ERROR: Unknown config address: '{hex(addr)}'")
+                return
+            (_addr, name, *rest) = parameter
+            log_name = name
+
+            # Get the type bit
+            type_bit = data[2]
+            data_type = DataType(type_bit)
+
+            # Read the value
+            value = extract_type(data[4:], data_type)
+
+            self._log(f" > {name} = {value}")
+            self.config[name] = value
+            self.emit("config_received", name, value)
+        except Exception as e:
+            traceback.print_exc()
             self._log(f"ERROR: Could not process parameter value ({log_name}): {e}")
 
     def _process_fault_data(self, data: bytearray):

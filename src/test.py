@@ -90,13 +90,15 @@ def main() -> None:
     # Loop back and forth
     while True:
         # motor.control_position(position=-6, velocity=1, torque=1, kp=10, kd=0.25)
+
         motor.set_parameter("loc_ref", -6)
-        motor.get_position()
+
         time.sleep(2)
 
         # motor.control_position(position=5, velocity=1, torque=1, kp=10, kd=0.25)
+
         motor.set_parameter("loc_ref", 4)
-        motor.get_position()
+
         time.sleep(2)
 
 
