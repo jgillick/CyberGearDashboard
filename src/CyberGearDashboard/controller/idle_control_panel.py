@@ -12,11 +12,9 @@ from PySide6.QtWidgets import (
     QFrame,
 )
 
-from motor.motor_controller import (
-    CyberGearMotor,
-)
+from CyberGearDriver import CyberGearMotor
 
-from dashboard.controller.abc_control_panel import AbstractModePanel
+from CyberGearDashboard.controller.abc_control_panel import AbstractModePanel
 from .slider_input_widgets import SliderInputWidget
 
 

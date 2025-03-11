@@ -1,0 +1,1 @@
+from CyberGearDashboard.app import openDashboard

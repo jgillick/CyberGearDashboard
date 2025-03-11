@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
 )
 
-from motor import CyberGearMotor
-from motor.parameters import ParameterName, DataType, get_parameter_by_name
+from CyberGearDriver import CyberGearMotor
+from CyberGearDriver.parameters import ParameterName, DataType, get_parameter_by_name
 
 RageValue = Tuple[Union[int, float], Union[int, float]]
 

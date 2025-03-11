@@ -7,9 +7,9 @@ from PySide6.QtWidgets import (
     QStackedWidget,
 )
 
-from motor import CyberGearMotor
+from CyberGearDriver import CyberGearMotor
 
-from dashboard.controller.abc_control_panel import AbstractModePanel
+from CyberGearDashboard.controller.abc_control_panel import AbstractModePanel
 
 from .idle_control_panel import IdleControlPanel
 from .operation_control_panel import OperationControlPanel

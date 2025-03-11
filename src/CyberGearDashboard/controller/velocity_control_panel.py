@@ -1,41 +1,27 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
+    QPushButton,
     QVBoxLayout,
     QSpacerItem,
     QSizePolicy,
-    QPushButton,
     QCheckBox,
 )
 
-from motor import (
-    CyberGearMotor,
-    RunMode,
-    P_MIN,
-    P_MAX,
-    V_MIN,
-    V_MAX,
-    KP_MIN,
-    KP_MAX,
-    KD_MIN,
-    KD_MAX,
-    T_MIN,
-    T_MAX,
-)
+from CyberGearDriver import CyberGearMotor, RunMode
 
-from dashboard.controller.abc_control_panel import AbstractModePanel
-from .slider_input_widgets import SliderInputWidget
+from CyberGearDashboard.controller.abc_control_panel import AbstractModePanel
+from .slider_input_widgets import SliderMotorInputWidget
 
 
-class OperationControlPanel(QWidget, metaclass=AbstractModePanel):
+class VelocityControlPanel(QWidget, metaclass=AbstractModePanel):
     motor: CyberGearMotor
-
+    velocity: SliderMotorInputWidget
+    velocity_kp: SliderMotorInputWidget
+    velocity_ki: SliderMotorInputWidget
+    max_current: SliderMotorInputWidget
     form: QWidget
-    position: SliderInputWidget
-    torque: SliderInputWidget
-    velocity: SliderInputWidget
-    kp: SliderInputWidget
-    kd: SliderInputWidget
+    enabled: QCheckBox
 
     def __init__(self, motor: CyberGearMotor, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -46,30 +32,29 @@ class OperationControlPanel(QWidget, metaclass=AbstractModePanel):
         """Reset the screen and put the motor in the correct mode"""
         self.enabled.setCheckState(Qt.CheckState.Unchecked)
         self.form.setEnabled(False)
-        self.position.set_value(0.0)
-        self.torque.set_value(0.0)
-        self.velocity.set_value(0.0)
+        self.velocity.reset()
+        self.velocity_kp.reset()
+        self.velocity_ki.reset()
+        self.max_current.reset()
 
     def unload(self):
-        """The control panel is closing, stop the motor"""
+        """The control panel is closing"""
         self.motor.stop()
 
     def execute(self):
         """Send the values to the motor"""
-        self.motor.control(
-            self.position.value,
-            self.velocity.value,
-            self.torque.value,
-            self.kp.value,
-            self.kd.value,
-        )
+        self.max_current.send_to_motor()
+        self.velocity_kp.send_to_motor()
+        self.velocity_ki.send_to_motor()
+        self.velocity.send_to_motor()
 
     def set_enabled_changed(self, state: Qt.CheckState):
+        """The enabled checkbox has changed"""
         is_enabled = True if state == Qt.CheckState.Checked else False
         self.form.setEnabled(is_enabled)
         if is_enabled:
             self.motor.enable()
-            self.motor.mode(RunMode.OPERATION_CONTROL)
+            self.motor.mode(RunMode.VELOCITY)
         else:
             self.motor.stop()
 
@@ -78,20 +63,17 @@ class OperationControlPanel(QWidget, metaclass=AbstractModePanel):
         self.enabled.setCheckState(Qt.CheckState.Unchecked)
         self.enabled.checkStateChanged.connect(self.set_enabled_changed)
 
-        self.position = SliderInputWidget(
-            label="Position (rad)", value=1.0, range=(P_MIN, P_MAX)
+        self.velocity = SliderMotorInputWidget(
+            motor=self.motor, label="Velocity (rad/s)", param_name="spd_ref"
         )
-        self.torque = SliderInputWidget(
-            label="Torque (Nm)", value=0.5, range=(T_MIN, T_MAX)
+        self.velocity_kp = SliderMotorInputWidget(
+            motor=self.motor, label="Velocity Kp", param_name="spd_kp", decimals=3
         )
-        self.velocity = SliderInputWidget(
-            label="Velocity (rad/s)", value=1, range=(V_MIN, V_MAX)
+        self.velocity_ki = SliderMotorInputWidget(
+            motor=self.motor, label="Velocity Ki", param_name="spd_ki", decimals=3
         )
-        self.kp = SliderInputWidget(
-            label="Kp", value=0.1, range=(KP_MIN, KP_MAX), decimals=3
-        )
-        self.kd = SliderInputWidget(
-            label="Kd", value=0.1, range=(KD_MIN, KD_MAX), decimals=3
+        self.max_current = SliderMotorInputWidget(
+            motor=self.motor, label="Max current (A)", param_name="limit_cur"
         )
 
         button = QPushButton("Send")
@@ -102,11 +84,10 @@ class OperationControlPanel(QWidget, metaclass=AbstractModePanel):
         )
 
         form_layout = QVBoxLayout()
-        form_layout.addWidget(self.position)
-        form_layout.addWidget(self.torque)
         form_layout.addWidget(self.velocity)
-        form_layout.addWidget(self.kp)
-        form_layout.addWidget(self.kd)
+        form_layout.addWidget(self.velocity_kp)
+        form_layout.addWidget(self.velocity_ki)
+        form_layout.addWidget(self.max_current)
         form_layout.addWidget(button)
 
         self.form = QWidget()
@@ -116,5 +97,4 @@ class OperationControlPanel(QWidget, metaclass=AbstractModePanel):
         layout.addWidget(self.enabled)
         layout.addWidget(self.form)
         layout.addItem(spacer)
-
         self.setLayout(layout)

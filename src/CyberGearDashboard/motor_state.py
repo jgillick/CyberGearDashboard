@@ -13,8 +13,8 @@ from PySide6.QtWidgets import (
     QMenu,
 )
 
-from dashboard.charts import ChartLayout
-from motor import CyberGearMotor
+from CyberGearDashboard.charts import ChartLayout
+from CyberGearDriver import CyberGearMotor
 
 
 class StateTableModel(QAbstractTableModel):

@@ -2,7 +2,7 @@ import threading
 import time
 from typing import Set
 
-from motor import CyberGearMotor, ParameterName
+from CyberGearDriver import CyberGearMotor, ParameterName
 
 # How often to request updates from the motor (in seconds)
 UPDATE_RATE = 0.1

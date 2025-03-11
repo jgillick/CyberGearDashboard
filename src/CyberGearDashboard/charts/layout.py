@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 
-from motor import CyberGearMotor, StateName, ParameterName, state_names, parameter_names
-from dashboard.watcher import MotorWatcher
+from CyberGearDriver import CyberGearMotor
+from CyberGearDashboard.watcher import MotorWatcher
 
 from .chart import Chart
 

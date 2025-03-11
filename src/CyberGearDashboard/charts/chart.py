@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout
 
 import pyqtgraph as pg
 
-from motor import CyberGearMotor, StateName
+from CyberGearDriver import CyberGearMotor, StateName
 
 MAX_DATA_POINTS = 100
 UPDATE_RATE_MS = 100

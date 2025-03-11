@@ -1,6 +1,5 @@
 import sys
 import can
-import traceback
 from PySide6.QtCore import Qt, QSettings, QPoint, QSize
 from PySide6.QtGui import QCloseEvent, QAction
 from PySide6.QtWidgets import (
@@ -11,15 +10,14 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from motor import CyberGearMotor, CyberMotorMessage
+from CyberGearDriver import CyberGearMotor, CyberMotorMessage
 
-from dashboard.parameters import ParametersDockWidget, ConfigDockWidget
-from dashboard.controller.controller_dock import MotorControllerDockWidget
-from dashboard.motor_state import MotorStateWidget
-from dashboard.watcher import MotorWatcher
-from dashboard.charts import ChartLayout
-
-CAN_BITRATE = 1000000
+from CyberGearDashboard.constants import DEFAULT_CAN_BITRATE
+from CyberGearDashboard.parameters import ParametersDockWidget, ConfigDockWidget
+from CyberGearDashboard.controller.controller_dock import MotorControllerDockWidget
+from CyberGearDashboard.motor_state import MotorStateWidget
+from CyberGearDashboard.watcher import MotorWatcher
+from CyberGearDashboard.charts import ChartLayout
 
 
 class AppWindow(QMainWindow):
@@ -36,10 +34,10 @@ class AppWindow(QMainWindow):
         interface: str,
         motor_id: int,
         verbose: bool = False,
-        bitrate=CAN_BITRATE,
+        bitrate=DEFAULT_CAN_BITRATE,
     ):
         super().__init__()
-        self.settings = QSettings("jgillick", "PyCyberGearDashboard")
+        self.settings = QSettings("jgillick", "CyberGearDriverDashboard")
 
         # Connect to motor
         self.connect(channel, interface, motor_id, verbose, bitrate)
@@ -153,7 +151,7 @@ def openDashboard(
     interface: str,
     motor_id: int,
     verbose: bool = False,
-    bitrate=CAN_BITRATE,
+    bitrate=DEFAULT_CAN_BITRATE,
 ):
     app = QApplication(sys.argv)
     window = AppWindow(channel, interface, motor_id, verbose, bitrate)

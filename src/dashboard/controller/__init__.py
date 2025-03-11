@@ -1,1 +1,0 @@
-from dashboard.controller.controller_dock import MotorControllerDockWidget

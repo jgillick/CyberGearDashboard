@@ -13,8 +13,8 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
 )
 
-from motor import CyberGearMotor
-from motor.parameters import (
+from CyberGearDriver import CyberGearMotor
+from CyberGearDriver.parameters import (
     parameter_names,
     config_names,
     get_parameter_by_name,

@@ -8,20 +8,20 @@ from PySide6.QtWidgets import (
     QCheckBox,
 )
 
-from motor.motor_controller import CyberGearMotor, RunMode
+from CyberGearDriver import CyberGearMotor, RunMode
 
-from dashboard.controller.abc_control_panel import AbstractModePanel
+from CyberGearDashboard.controller.abc_control_panel import AbstractModePanel
 from .slider_input_widgets import SliderMotorInputWidget
 
 
-class PositionControlPanel(QWidget, metaclass=AbstractModePanel):
+class TorqueControlPanel(QWidget, metaclass=AbstractModePanel):
     motor: CyberGearMotor
-    position: SliderMotorInputWidget
-    position_kp: SliderMotorInputWidget
-    velocity: SliderMotorInputWidget
-    current: SliderMotorInputWidget
     form: QWidget
     enabled: QCheckBox
+    current: SliderMotorInputWidget
+    current_kp: SliderMotorInputWidget
+    current_ki: SliderMotorInputWidget
+    current_filter_gain: SliderMotorInputWidget
 
     def __init__(self, motor: CyberGearMotor, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,10 +32,10 @@ class PositionControlPanel(QWidget, metaclass=AbstractModePanel):
         """Reset the screen and put the motor in the correct mode"""
         self.enabled.setCheckState(Qt.CheckState.Unchecked)
         self.form.setEnabled(False)
-        self.position.reset()
-        self.position_kp.reset()
-        self.velocity.reset()
         self.current.reset()
+        self.current_kp.reset()
+        self.current_ki.reset()
+        self.current_filter_gain.reset()
 
     def unload(self):
         """The control panel is closing"""
@@ -43,9 +43,9 @@ class PositionControlPanel(QWidget, metaclass=AbstractModePanel):
 
     def execute(self):
         """Send the values to the motor"""
-        self.position_kp.send_to_motor()
-        self.velocity.send_to_motor()
-        self.position.send_to_motor()
+        self.current_filter_gain.send_to_motor()
+        self.current_kp.send_to_motor()
+        self.current_ki.send_to_motor()
         self.current.send_to_motor()
 
     def set_enabled_changed(self, state: Qt.CheckState):
@@ -54,7 +54,7 @@ class PositionControlPanel(QWidget, metaclass=AbstractModePanel):
         self.form.setEnabled(is_enabled)
         if is_enabled:
             self.motor.enable()
-            self.motor.mode(RunMode.POSITION)
+            self.motor.mode(RunMode.TORQUE)
         else:
             self.motor.stop()
 
@@ -63,17 +63,17 @@ class PositionControlPanel(QWidget, metaclass=AbstractModePanel):
         self.enabled.setCheckState(Qt.CheckState.Unchecked)
         self.enabled.checkStateChanged.connect(self.set_enabled_changed)
 
-        self.position = SliderMotorInputWidget(
-            motor=self.motor, label="Position (rad)", param_name="loc_ref"
-        )
-        self.position_kp = SliderMotorInputWidget(
-            motor=self.motor, label="Position Kp", param_name="loc_kp", decimals=3
-        )
-        self.velocity = SliderMotorInputWidget(
-            motor=self.motor, label="Velocity (rad/s)", param_name="limit_spd"
-        )
         self.current = SliderMotorInputWidget(
-            motor=self.motor, label="Limit Current (A)", param_name="limit_spd"
+            motor=self.motor, label="Current (A)", param_name="iq_ref"
+        )
+        self.current_kp = SliderMotorInputWidget(
+            motor=self.motor, label="Current Kp", param_name="cur_kp", decimals=3
+        )
+        self.current_ki = SliderMotorInputWidget(
+            motor=self.motor, label="Current Ki", param_name="cur_ki", decimals=3
+        )
+        self.current_filter_gain = SliderMotorInputWidget(
+            motor=self.motor, label="Current filter gain", param_name="cur_filt_gain"
         )
 
         button = QPushButton("Send")
@@ -84,10 +84,10 @@ class PositionControlPanel(QWidget, metaclass=AbstractModePanel):
         )
 
         form_layout = QVBoxLayout()
-        form_layout.addWidget(self.position)
-        form_layout.addWidget(self.position_kp)
-        form_layout.addWidget(self.velocity)
         form_layout.addWidget(self.current)
+        form_layout.addWidget(self.current_kp)
+        form_layout.addWidget(self.current_ki)
+        form_layout.addWidget(self.current_filter_gain)
         form_layout.addWidget(button)
 
         self.form = QWidget()

@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QTabWidget, QDockWidget, QVBoxLayout
 
-from motor import CyberGearMotor
+from CyberGearDriver import CyberGearMotor
 
 from .generic_table import GenericParamTable
 

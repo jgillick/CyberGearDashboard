@@ -1,0 +1,1 @@
+from CyberGearDashboard.controller.controller_dock import MotorControllerDockWidget
