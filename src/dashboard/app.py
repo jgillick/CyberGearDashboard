@@ -1,5 +1,6 @@
 import sys
 import can
+import traceback
 from PySide6.QtCore import Qt, QSettings, QPoint, QSize
 from PySide6.QtGui import QCloseEvent, QAction
 from PySide6.QtWidgets import (
@@ -10,7 +11,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from motor import CyberGearMotor
+from motor import CyberGearMotor, CyberMotorMessage
 
 from dashboard.parameters import ParametersDockWidget, ConfigDockWidget
 from dashboard.controller.controller_dock import MotorControllerDockWidget
@@ -23,6 +24,7 @@ CAN_BITRATE = 1000000
 
 class AppWindow(QMainWindow):
     bus: can.Bus = None
+    bus_notifier: can.Notifier
     motor: CyberGearMotor = None
     watcher: MotorWatcher
     settings: QSettings
@@ -79,21 +81,33 @@ class AppWindow(QMainWindow):
         view_menu.addAction(self.parameter_dock.toggleViewAction())
         view_menu.addAction(self.config_dock.toggleViewAction())
 
+    def send_bus_message(self, message: CyberMotorMessage):
+        """Send a CyberMotor message on the CAN bus"""
+        self.bus.send(
+            can.Message(
+                arbitration_id=message.arbitration_id,
+                data=message.data,
+                is_extended_id=message.is_extended_id,
+            )
+        )
+
     def connect(
         self, channel: str, interface: str, motor_id: int, verbose: bool, bitrate: int
     ) -> bool:
         """Connect to the CAN bus and the motor controller"""
         try:
-            print("Connecting to motor...")
             self.bus = can.interface.Bus(
                 interface=interface,
                 channel=channel,
                 bitrate=bitrate,
             )
-            print("Connected!")
 
             # Create the motor controller
-            self.motor = CyberGearMotor(motor_id, bus=self.bus, verbose=verbose)
+            self.motor = CyberGearMotor(
+                motor_id, send_message=self.send_bus_message, verbose=verbose
+            )
+            self.bus_notifier = can.Notifier(self.bus, [self.motor.message_received])
+
             self.motor.enable()
             self.motor.stop()
 
@@ -125,7 +139,6 @@ class AppWindow(QMainWindow):
             self.watcher.stop_watching()
         if self.motor is not None:
             self.motor.stop()
-            self.motor.disconnect()
         if self.bus is not None:
             # Only save window position if we had connected to the bus
             self.save_window_pos()

@@ -1,10 +1,10 @@
-import can
 import time
 import struct
 import traceback
 from numbers import Real
-from typing import Union
+from typing import Callable
 
+from .can import CyberMotorMessage
 from motor.utils import float_to_uint, uint_to_float, extract_type, encode_to_bytes
 from motor.event_emitter import EventEmitter
 from motor.parameters import (
@@ -35,46 +35,54 @@ from motor.constants import (
 
 
 class CyberGearMotor(EventEmitter):
-    """Controller and state manager for the CyberGear motor"""
+    """Controller for the CyberGear motor"""
 
+    # The motor ID on the CAN bus
     motor_id: int
+
+    # The host ID on the CAN bus
     host_id: int
-    bus: can.Bus
-    notifier: can.Notifier
-    verbose: bool
+
+    # Motor state
     state: dict
-    params: dict
+
+    # Motor configuration parameters that are retained after power down (ID: 0x0000 - 0x302F)
     config: dict
+
+    # Motor parameters stored in RAM (ID: 0x7005 - 0x7020)
+    params: dict
+
+    # Collection of possible fault messages and their True/False
     faults: dict
+
+    # Whether to output verbose logging
+    verbose: bool
 
     def __init__(
         self,
         motor_id: int,
-        bus: can.Bus,
-        verbose: bool = False,
+        send_message: Callable[[CyberMotorMessage], None],
         host_id: int = DEFAULT_HOST_CAN_ID,
+        verbose: bool = False,
     ) -> None:
-        self.verbose = verbose
         self.motor_id = motor_id
         self.host_id = host_id
+        self.send_message = send_message
+        self.verbose = verbose
+
         self.params = {}
         self.config = {}
         self.state = {}
         self.faults = {}
 
-        self.bus = bus
-        self.notifier = can.Notifier(self.bus, [self._message_received])
-
         super().__init__()
 
-    def disconnect(self):
-        """Disconnect the motor from the bus"""
-        self.notifier.stop()
-
     def enable(self):
+        """Enable the motor for commands. This needs to be called before any other commands."""
         self._send(Command.ENABLE)
 
     def stop(self):
+        """Disable the motor."""
         self._send(Command.STOP, extended_data=self.host_id)
 
     def mode(self, mode: RunMode):
@@ -98,7 +106,10 @@ class CyberGearMotor(EventEmitter):
     def control(
         self, position: float, velocity: float, torque: float, kp: float, kd: float
     ):
-        """Move to a position in operation control mode."""
+        """
+        Operation control mode, or also called MIT mode.
+        Sets the position, velocity, torque, kp, and kd values.
+        """
         data = bytearray(8)
 
         # Convert values
@@ -212,13 +223,12 @@ class CyberGearMotor(EventEmitter):
         # Create message
         data = bytearray(8)
         data[0] = 1
-        msg = can.Message(
+        msg = CyberMotorMessage(
             arbitration_id=arbitration_id,
             data=data,
-            is_extended_id=True,
         )
 
-        self.bus.send(msg)
+        self.send_message(msg)
         self._log(f"Send: {Command.CHANGE_CAN_ID.name}")
         self.motor_id = new_motor_id
         time.sleep(PAUSE_AFTER_SEND)
@@ -253,22 +263,19 @@ class CyberGearMotor(EventEmitter):
         id = command.value << 24 | extended_data << 8 | self.motor_id
 
         # Create message
-        msg = can.Message(
+        msg = CyberMotorMessage(
             arbitration_id=id,
             data=data,
-            is_extended_id=True,
         )
 
         # Send
-        self.bus.send(msg)
+        self.send_message(msg)
         if log:
             self._log(f"Send: {command.name}")
         time.sleep(PAUSE_AFTER_SEND)
 
-    def _message_received(self, msg: can.Message):
+    def message_received(self, msg: CyberMotorMessage):
         """A message was received on the CAN bus"""
-
-        self._log(f"Received: {msg}")
 
         # Parse values out of arbitration ID
         destination_id = msg.arbitration_id & 0xFF
@@ -279,6 +286,8 @@ class CyberGearMotor(EventEmitter):
 
         extended_data = (msg.arbitration_id >> 8) & 0xFFFF
         ext_data_bytes = extended_data.to_bytes(16, "little")
+
+        self._log(f"Received: {msg}")
         self._log(f" > {command.name} from: {from_id}, to: {destination_id}")
 
         # Filter out messages not from our motor

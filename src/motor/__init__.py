@@ -3,7 +3,6 @@ from motor.parameters import ParameterName, parameter_names
 from motor.state import StateName, state_names
 from motor.constants import (
     RunMode,
-    StateName,
     KD_MAX,
     KD_MIN,
     KP_MAX,
@@ -15,3 +14,4 @@ from motor.constants import (
     V_MAX,
     V_MIN,
 )
+from motor.can import CyberMotorMessage

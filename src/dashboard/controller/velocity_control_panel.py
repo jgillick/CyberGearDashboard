@@ -76,7 +76,7 @@ class VelocityControlPanel(QWidget, metaclass=AbstractModePanel):
             motor=self.motor, label="Max current (A)", param_name="limit_cur"
         )
 
-        button = QPushButton("Go")
+        button = QPushButton("Send")
         button.clicked.connect(self.execute)
 
         spacer = QSpacerItem(

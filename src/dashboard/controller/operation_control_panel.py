@@ -94,7 +94,7 @@ class OperationControlPanel(QWidget, metaclass=AbstractModePanel):
             label="Kd", value=0.1, range=(KD_MIN, KD_MAX), decimals=3
         )
 
-        button = QPushButton("Go")
+        button = QPushButton("Send")
         button.clicked.connect(self.execute)
 
         spacer = QSpacerItem(

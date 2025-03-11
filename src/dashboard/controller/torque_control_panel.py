@@ -76,7 +76,7 @@ class TorqueControlPanel(QWidget, metaclass=AbstractModePanel):
             motor=self.motor, label="Current filter gain", param_name="cur_filt_gain"
         )
 
-        button = QPushButton("Go")
+        button = QPushButton("Send")
         button.clicked.connect(self.execute)
 
         spacer = QSpacerItem(

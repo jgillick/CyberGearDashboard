@@ -51,6 +51,3 @@ class Command(Enum):
     READ_PARAM = 17
     WRITE_PARAM = 18
     FAULT = 21
-
-
-StateName = Literal["position", "velocity", "torque", "temperature"]

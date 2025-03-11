@@ -76,7 +76,7 @@ class PositionControlPanel(QWidget, metaclass=AbstractModePanel):
             motor=self.motor, label="Limit Current (A)", param_name="limit_spd"
         )
 
-        button = QPushButton("Go")
+        button = QPushButton("Send")
         button.clicked.connect(self.execute)
 
         spacer = QSpacerItem(
