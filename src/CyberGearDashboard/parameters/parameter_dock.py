@@ -70,7 +70,8 @@ class ParametersTableDock(QDockWidget):
         """Check the motor data for updates"""
         data = self.get_data()
         for name, value in data.items():
-            if self.last_data.get(name) is None or value != self.last_data.get(name):
+            prev_value = self.last_data.get(name)
+            if prev_value is None or value != prev_value:
                 self.model.data_did_change(name)
         self.last_data = data
 

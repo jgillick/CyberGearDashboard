@@ -1,6 +1,6 @@
 import math
 from typing import List
-from pyqtgraph.Qt import QtCore
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 
 import pyqtgraph as pg
@@ -27,7 +27,7 @@ class Chart(QWidget):
 
         self.build_layout()
 
-        self.timer = QtCore.QTimer()
+        self.timer = QTimer()
         self.timer.timeout.connect(self.update_data)
         self.start()
 

@@ -15,7 +15,7 @@ from CyberGearDriver import CyberGearMotor, CyberMotorMessage
 from CyberGearDashboard.constants import DEFAULT_CAN_BITRATE
 from CyberGearDashboard.parameters import ParametersTableDock
 from CyberGearDashboard.controller.controller_dock import MotorControllerDockWidget
-from CyberGearDashboard.motor_state import MotorStateWidget
+from CyberGearDashboard.status.motor_state import MotorStateWidget
 from CyberGearDashboard.watcher import MotorWatcher
 from CyberGearDashboard.charts import ChartLayout
 
