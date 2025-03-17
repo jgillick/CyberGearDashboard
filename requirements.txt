@@ -1,4 +1,4 @@
-CyberGearDriver==0.1.1
+CyberGearDriver==0.2.0
 pyqtgraph==0.13.7
 PySide6==6.8.2.1
 PySide6_Addons==6.8.2.1
