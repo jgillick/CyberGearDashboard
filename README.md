@@ -66,6 +66,8 @@ If the dashboard has trouble connecting to your device, try connecting via one o
 For example
 
 ```shell
+pip install python-can
+
 # If this connects without error
 python -m can.viewer --interface gs_usb --channel 0
 
