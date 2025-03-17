@@ -77,11 +77,14 @@ class ParameterTableModel(QAbstractTableModel):
         return flags
 
     def setData(self, index, value, /, role=...):
-        if role == Qt.EditRole:
-            row = index.row()
-            name = self.name_list[row]
-            is_editable = self.can_edit(name)
-            if is_editable:
-                self.on_change(name, float(value))
-                return True
-            return False
+        try:
+            if role == Qt.EditRole:
+                row = index.row()
+                name = self.name_list[row]
+                is_editable = self.can_edit(name)
+                if is_editable:
+                    self.on_change(name, float(value))
+                    return True
+        except Exception as e:
+            print(e)
+        return False
