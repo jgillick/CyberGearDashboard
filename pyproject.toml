@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "CyberGearDashboard"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
   { name="Jeremy Gillick" },
 ]
@@ -17,6 +17,15 @@ classifiers = [
 ]
 license = "MIT"
 license-files = ["LICENSE"]
+dependencies = [
+  "CyberGearDriver==0.2.0",
+  "pyqtgraph==0.13.7",
+  "PySide6==6.8.2.1",
+  "PySide6_Addons==6.8.2.1",
+  "PySide6_Essentials==6.8.2.1",
+  "python-can==4.5.0",
+  "gs-usb==0.3.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/jgillick/CyberGearDashboard"
