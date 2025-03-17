@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from PySide6.QtWidgets import QWidget
 
 
-class AbstractModePanel(ABC, type(QWidget)):
+class AbstractControlPanel(ABC, type(QWidget)):
     @abstractmethod
     def load(self):
         """The screen is showing."""

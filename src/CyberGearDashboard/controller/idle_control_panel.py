@@ -14,11 +14,10 @@ from PySide6.QtWidgets import (
 
 from CyberGearDriver import CyberGearMotor
 
-from CyberGearDashboard.controller.abc_control_panel import AbstractModePanel
-from .slider_input_widgets import SliderInputWidget
+from CyberGearDashboard.controller.abstract_classes import AbstractControlPanel
 
 
-class IdleControlPanel(QWidget, metaclass=AbstractModePanel):
+class IdleControlPanel(QWidget, metaclass=AbstractControlPanel):
     motor: CyberGearMotor
     zero_btn: QPushButton
 

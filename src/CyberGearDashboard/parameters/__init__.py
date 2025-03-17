@@ -1,2 +1,1 @@
-from .config_table import ConfigDockWidget
-from .parameter_table import ParametersDockWidget
+from .parameter_dock import ParametersTableDock

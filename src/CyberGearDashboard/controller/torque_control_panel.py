@@ -5,33 +5,32 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QSpacerItem,
     QSizePolicy,
-    QCheckBox,
+    QDockWidget,
 )
 
 from CyberGearDriver import CyberGearMotor, RunMode
 
-from CyberGearDashboard.controller.abc_control_panel import AbstractModePanel
+from .abstract_classes import AbstractControlPanel
 from .slider_input_widgets import SliderMotorInputWidget
 
 
-class TorqueControlPanel(QWidget, metaclass=AbstractModePanel):
+class TorqueControlPanel(QWidget, metaclass=AbstractControlPanel):
     motor: CyberGearMotor
     form: QWidget
-    enabled: QCheckBox
+    send_button: QPushButton
     current: SliderMotorInputWidget
     current_kp: SliderMotorInputWidget
     current_ki: SliderMotorInputWidget
     current_filter_gain: SliderMotorInputWidget
 
-    def __init__(self, motor: CyberGearMotor, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, motor: CyberGearMotor, parent=QDockWidget, *args, **kwargs):
+        super().__init__(parent=parent, *args, **kwargs)
         self.motor = motor
         self.build_layout()
+        parent.motor_enabled.connect(self.motor_is_enabled)
 
     def load(self):
         """Reset the screen and put the motor in the correct mode"""
-        self.enabled.setCheckState(Qt.CheckState.Unchecked)
-        self.form.setEnabled(False)
         self.current.reset()
         self.current_kp.reset()
         self.current_ki.reset()
@@ -39,7 +38,7 @@ class TorqueControlPanel(QWidget, metaclass=AbstractModePanel):
 
     def unload(self):
         """The control panel is closing"""
-        self.motor.stop()
+        pass
 
     def execute(self):
         """Send the values to the motor"""
@@ -47,22 +46,13 @@ class TorqueControlPanel(QWidget, metaclass=AbstractModePanel):
         self.current_kp.send_to_motor()
         self.current_ki.send_to_motor()
         self.current.send_to_motor()
+        self.motor.mode(RunMode.TORQUE)
 
-    def set_enabled_changed(self, state: Qt.CheckState):
-        """The enabled checkbox has changed"""
-        is_enabled = True if state == Qt.CheckState.Checked else False
-        self.form.setEnabled(is_enabled)
-        if is_enabled:
-            self.motor.enable()
-            self.motor.mode(RunMode.TORQUE)
-        else:
-            self.motor.stop()
+    def motor_is_enabled(self, is_enabled: bool):
+        """Enable the send button when the motor is enabled"""
+        self.send_button.setEnabled(is_enabled)
 
     def build_layout(self):
-        self.enabled = QCheckBox("Enabled")
-        self.enabled.setCheckState(Qt.CheckState.Unchecked)
-        self.enabled.checkStateChanged.connect(self.set_enabled_changed)
-
         self.current = SliderMotorInputWidget(
             motor=self.motor, label="Current (A)", param_name="iq_ref"
         )
@@ -76,8 +66,9 @@ class TorqueControlPanel(QWidget, metaclass=AbstractModePanel):
             motor=self.motor, label="Current filter gain", param_name="cur_filt_gain"
         )
 
-        button = QPushButton("Send")
-        button.clicked.connect(self.execute)
+        self.send_button = QPushButton("Send")
+        self.send_button.setEnabled(False)
+        self.send_button.clicked.connect(self.execute)
 
         spacer = QSpacerItem(
             20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
@@ -88,13 +79,12 @@ class TorqueControlPanel(QWidget, metaclass=AbstractModePanel):
         form_layout.addWidget(self.current_kp)
         form_layout.addWidget(self.current_ki)
         form_layout.addWidget(self.current_filter_gain)
-        form_layout.addWidget(button)
+        form_layout.addWidget(self.send_button)
 
         self.form = QWidget()
         self.form.setLayout(form_layout)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.enabled)
         layout.addWidget(self.form)
         layout.addItem(spacer)
         self.setLayout(layout)
