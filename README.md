@@ -61,7 +61,7 @@ python -m CyberGearDashboard  --interface gs_usb --channel 0 --motor 127
 
 ### Troubleshooting
 
-If the dashboard has trouble connecting to your device, try connceting via one of the [Python CAN tools](https://python-can.readthedocs.io/en/stable/scripts.html). Once you're able to connect with one of those tools, use the same arguments to open the dashboard.
+If the dashboard has trouble connecting to your device, try connecting via one of the [Python CAN tools](https://python-can.readthedocs.io/en/stable/scripts.html). Once you're able to connect with one of those tools, use the same arguments to open the dashboard.
 
 For example
 

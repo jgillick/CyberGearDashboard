@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from CyberGearDriver import CyberGearMotor, CyberMotorMessage
 
 from CyberGearDashboard.constants import DEFAULT_CAN_BITRATE
-from CyberGearDashboard.parameters import ParametersDockWidget, ConfigDockWidget
+from CyberGearDashboard.parameters import ParametersTableDock
 from CyberGearDashboard.controller.controller_dock import MotorControllerDockWidget
 from CyberGearDashboard.motor_state import MotorStateWidget
 from CyberGearDashboard.watcher import MotorWatcher
@@ -22,8 +22,9 @@ from CyberGearDashboard.charts import ChartLayout
 
 class AppWindow(QMainWindow):
     bus: can.Bus = None
-    bus_notifier: can.Notifier
     motor: CyberGearMotor = None
+    did_load: bool = False
+    bus_notifier: can.Notifier
     watcher: MotorWatcher
     settings: QSettings
     charts: ChartLayout
@@ -41,43 +42,37 @@ class AppWindow(QMainWindow):
 
         # Connect to motor
         self.connect(channel, interface, motor_id, verbose, bitrate)
+        self.did_load = True
 
         # UI
         self.restore_window_pos()
         self.setWindowTitle("CyberGear Dashboard")
         self.build_layout()
-        self.build_menubar()
 
     def build_layout(self):
         """Construct the layout"""
         layout = QVBoxLayout()
 
-        self.charts = ChartLayout(self.motor, self.watcher)
-        self.state_dock = MotorStateWidget(self.motor, charts=self.charts)
-        self.parameter_dock = ParametersDockWidget(self.motor)
-        self.config_dock = ConfigDockWidget(self.motor)
-        self.controller_dock = MotorControllerDockWidget(self.motor)
+        charts = ChartLayout(self.motor, self.watcher)
+        state_dock = MotorStateWidget(self.motor, charts=charts)
+        parameter_dock = ParametersTableDock(self.motor)
+        controller_dock = MotorControllerDockWidget(self.motor)
 
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.controller_dock)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, controller_dock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, state_dock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, parameter_dock)
 
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.state_dock)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.config_dock)
-        self.tabifyDockWidget(self.config_dock, self.parameter_dock)
+        menu = self.menuBar()
+        view_menu = menu.addMenu("&View")
+        view_menu.addAction(controller_dock.toggleViewAction())
+        view_menu.addAction(state_dock.toggleViewAction())
+        view_menu.addAction(parameter_dock.toggleViewAction())
 
-        layout.addLayout(self.charts)
+        layout.addLayout(charts)
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
-
-    def build_menubar(self):
-        """Setup the app menubar"""
-        menu = self.menuBar()
-
-        view_menu = menu.addMenu("&View")
-        view_menu.addAction(self.controller_dock.toggleViewAction())
-        view_menu.addAction(self.state_dock.toggleViewAction())
-        view_menu.addAction(self.parameter_dock.toggleViewAction())
-        view_menu.addAction(self.config_dock.toggleViewAction())
+        self.setFocus()
 
     def send_bus_message(self, message: CyberMotorMessage):
         """Send a CyberMotor message on the CAN bus"""
@@ -133,15 +128,16 @@ class AppWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """Cleanup before we exit"""
+        if self.did_load:
+            # Save window position
+            self.save_window_pos()
         if self.watcher is not None:
             self.watcher.stop_watching()
         if self.motor is not None:
             self.motor.stop()
+        if self.bus_notifier is not None:
+            self.bus_notifier.stop()
         if self.bus is not None:
-            # Only save window position if we had connected to the bus
-            self.save_window_pos()
-
-            #  Close the bus
             self.bus.shutdown()
         event.accept()
 

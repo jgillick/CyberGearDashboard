@@ -42,6 +42,7 @@ class Chart(QWidget):
     def clear(self):
         """Clear the chart data"""
         self.y = [math.nan] * MAX_DATA_POINTS
+        self.plot.setData(self.y)
 
     def update_data(self):
         value = self.motor.state.get(self.data_name)
